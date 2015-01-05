@@ -1,487 +1,331 @@
+#include <stdlib.h>
+#include <string>
+#include <iostream>
+#include <sstream>
+
 #include "App.h"
 #include "Widgets/nvSDLContext.h"
 
 #include "Mesh.h"
 #include "MeshIO.h"
+
+#include "GL/GLQuery.h"
+#include "GL/GLTexture.h"
+#include "GL/GLBuffer.h"
+#include "GL/GLVertexArray.h"
 #include "ProgramManager.h"
 
-#include "GL/GLBuffer.h"
-#include "GL/GLBasicMesh.h"
-#include "GL/GLSampler.h"
-#include "GL/GLVertexArray.h"
-#include "GL/GLQuery.h"
+#define nb_obj 59
 
-#include "MyModel.h"
-#include "MyBox.h"
-#include "MyFpsCamera.h"
-#include "MyPointLight.h"
-
-#include <cmath>
-#include <vector>
-#include <iostream>
-
-#define WINDOW_WIDTH	1024.0f
-#define WINDOW_HEIGHT	768.0f
-
-class TpApp : public gk::App
+using namespace std;
+//! classe utilitaire : permet de construire une chaine de caracteres formatee. cf sprintf.
+struct Format
 {
-private:
-
-  // Compteurs
-  gk::GLCounter* m_time;
-
-  // Widgets & Options associés
-  nv::SdlContext m_widgets;
-
-  bool m_ambient_light_enable;
-  bool m_material_reflection_enable;
-  float m_material_reflection_exponent;
-
-  // Shaders
-  gk::GLProgram* m_material_program;
-  gk::GLProgram* m_depthmap_program;
-  gk::GLProgram* m_depthmap_rendering_program;
-
-  // Caméra
-  MyFpsCamera m_camera;
-  float m_mouse_rotation_amount;
-
-  // Modèles
-  gk::GLBasicMesh* m_quad;
-
-  std::vector<MyModel*> m_models;
-
-  // Textures
-  gk::GLSampler* m_depth_sampler;
-  gk::GLSampler* m_color_sampler;
-
-  // Lumières
-  MyPointLight m_pointLight;
-  bool m_pointlight_motion_enable;
-  float m_pointlight_rotation_amount;
-
-  gk::Transform m_lightViewMatrix;
-  gk::Transform m_lightProjectionMatrix;
-
-  bool m_bShadowEnable;
-
-  GLuint m_light_depthmap;
-  GLuint m_light_colormap;
-
-  GLuint m_framebuffer;
-
-public:
-
-  TpApp()
-    : gk::App(),
-
-      m_ambient_light_enable(false),
-
-      m_material_reflection_enable(false),
-      m_material_reflection_exponent(15),
-
-      m_mouse_rotation_amount(0.3f),
-
-      m_pointLight(gk::Point(100.0f, 50.0f, 0.0f)),
-      m_pointlight_motion_enable(true),
-      m_pointlight_rotation_amount(5.0f),
-
-      m_bShadowEnable(true)
+    char text[1024];
+    
+    Format( const char *_format, ... )
     {
-      // Initialisation & Congifuration du contexte OpenGL
-      gk::AppSettings settings;
-      settings.setGLVersion(3,3);
-      settings.setGLCoreProfile();
-      settings.setGLDebugContext();
-
-      // Création de la fenêtre
-      if(createWindow(WINDOW_WIDTH, WINDOW_HEIGHT, settings) < 0)
-	closeWindow();
-
-      // Initialisation du système de widgets
-      m_widgets.init();
-      m_widgets.reshape(windowWidth(), windowHeight());
+        text[0]= 0;     // chaine vide
+        // recupere la liste d'arguments supplementaires
+        va_list args;
+        va_start(args, _format);
+        vsnprintf(text, sizeof(text), _format, args);
+        va_end(args);
     }
-  ~TpApp(){}
-
-  int init()
+    
+    ~Format( ) {}
+    
+    // conversion implicite de l'objet en chaine de caracteres stantard
+    operator const char *( )
     {
-      m_time = gk::createTimer();
-
-      loadShaders();
-      loadModels();
-
-      initializeLight();
-      initializeCamera();
-
-      return 0;
+        return text;
     }
-  void initializeLight()
-    {
-      // Textures de rendu de la scène depuis la lumière
-      glGenTextures(1, &m_light_colormap);
-      glBindTexture(GL_TEXTURE_2D, m_light_colormap);
-
-      glTexImage2D(GL_TEXTURE_2D, 0,
-      		   GL_RGB, WINDOW_WIDTH, WINDOW_HEIGHT, 0,
-      		   GL_RGB, GL_UNSIGNED_BYTE, 0);
-
-      glBindTexture(GL_TEXTURE_2D, 0);
-
-      glGenTextures(1, &m_light_depthmap);
-      glBindTexture(GL_TEXTURE_2D, m_light_depthmap);
-
-      glTexImage2D(GL_TEXTURE_2D, 0,
-      		   GL_DEPTH_COMPONENT, WINDOW_WIDTH, WINDOW_HEIGHT, 0,
-      		   GL_DEPTH_COMPONENT, GL_FLOAT, 0);
-
-      glBindTexture(GL_TEXTURE_2D, 0);
-
-      // Framebuffer
-      glGenFramebuffers(1, &m_framebuffer);
-      glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
-
-      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_light_colormap, 0);
-      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_light_depthmap, 0);
-
-      GLenum e = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-      if (e != GL_FRAMEBUFFER_COMPLETE)
-      {
-	printf("-> FBO invalide\r\n");
-	exit(-1);
-      }
-
-      glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-      // Samplers
-      m_depth_sampler = gk::createDepthSampler();
-      m_color_sampler = gk::createLinearSampler();
-    }
-  void initializeCamera()
-    {
-      m_camera = MyFpsCamera(gk::Point(-17.406164f, 31.752525f, 64.422066f),
-			     gk::Vector(0.067346f, 0.978148f, -0.196702f),
-			     gk::Vector(0.316839f, -0.207912f, -0.925410f),
-			     gk::Perspective(60.0f, WINDOW_WIDTH / WINDOW_HEIGHT, 0.01f, 1000.0f));
-    }
-
-  void loadShaders()
-    {
-      gk::programPath("shaders");
-
-      m_material_program = gk::createProgram("my_material.glsl");
-      if (m_material_program == gk::GLProgram::null())
-	return;
-
-      m_depthmap_program = gk::createProgram("my_depthmap.glsl");
-      if (m_depthmap_program == gk::GLProgram::null())
-	return;
-
-      m_depthmap_rendering_program = gk::createProgram("my_depthmap_rendering.glsl");
-      if (m_depthmap_rendering_program == gk::GLProgram::null())
-	return;
-    }
-  void loadModels()
-    {
-      // Mesh internes
-      m_quad = new gk::GLBasicMesh(GL_TRIANGLE_STRIP, 4);
-
-      // Modèles externes
-      m_models.push_back(new MyModel("Bigguy/bigguy_00.obj",
-				     gk::Translate(gk::Vector(20, 9.5f, 20))));
-      m_models.push_back(new MyModel("Bigguy/bigguy_01.obj",
-				     gk::Translate(gk::Vector(-20, 9.5f, 20))));
-      m_models.push_back(new MyModel("Bigguy/bigguy_02.obj",
-				     gk::Translate(gk::Vector(20, 9.5f, -20))));
-      m_models.push_back(new MyModel("Bigguy/bigguy_03.obj",
-				     gk::Translate(gk::Vector(-20, 9.5f, -20))));
-
-      for (unsigned int i = 0; i < m_models.size(); ++i)
-      {
-	m_models[i]->setMaterialDiffuseColor(gk::VecColor(1, 1, 1));
-	m_models[i]->enableMaterialReflection(true);
-	m_models[i]->setMaterialReflectionExponent(20);
-
-	gk::VecColor specularColor;
-	if (i == 0)
-	  specularColor = gk::VecColor(1, 0, 0);
-	else if (i == 1)
-	  specularColor = gk::VecColor(0, 1, 0);
-	else if (i == 2)
-	  specularColor = gk::VecColor(0, 0, 1);
-
-	m_models[i]->setMaterialReflectionColor(specularColor);
-      }
-
-      MyBox* ground = new MyBox(gk::Scale(100, 1, 100));
-      ground->setMaterialDiffuseColor(gk::VecColor(1, 1, 1));
-      ground->enableMaterialReflection(true);
-      ground->setMaterialReflectionExponent(2);
-
-      m_models.push_back(ground);
-    }
-
-  void shadowMapRenderingPass()
-    {
-      uint i;
-
-      glUseProgram(m_depthmap_program->name);
-
-      // Bounding sphere de la scène
-      gk::BBox bBox;
-      float bSphereRadius;
-      gk::Point bSphereCenter;
-
-      float lightTanViewAngle;
-      gk::Transform lightProjectionViewMatrix;
-      gk::Point bSphereCenterLightSpace;
-
-      for (i = 0; i < m_models.size(); ++i)
-      	if (m_camera.isVisible(*m_models[i]))
-      	  bBox.Union(m_models[i]->worldBBox());
-
-      bBox.BoundingSphere(bSphereCenter, bSphereRadius);
-
-      // Matrice ViewProjection d'observation de la scène depuis la lumière
-      m_lightViewMatrix = gk::LookAt(m_pointLight.position(),
-				     bSphereCenter,
-				     gk::Vector(0, 1, 0));
-
-      bSphereCenterLightSpace = m_lightViewMatrix(bSphereCenter);
-      lightTanViewAngle = gk::Distance(m_pointLight.position(), bSphereCenter) / bSphereRadius;
-
-      m_lightProjectionMatrix = gk::Perspective(gk::Degrees(lightTanViewAngle),
-						WINDOW_WIDTH / WINDOW_HEIGHT,
-						-bSphereCenterLightSpace.z - bSphereRadius,
-						-bSphereCenterLightSpace.z + bSphereRadius);
-
-      lightProjectionViewMatrix = m_lightProjectionMatrix * m_lightViewMatrix;
-
-      // Rendu framebuffer du point de vue de la lumière
-      glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-      glDrawBuffer(GL_COLOR_ATTACHMENT0);
-
-      for (i = 0; i < m_models.size(); ++i)
-      {
-      	gk::Transform lightMvpMatrix = lightProjectionViewMatrix * m_models[i]->transform();
-
-      	m_depthmap_program->uniform("light_mvp_matrix") = lightMvpMatrix.matrix();
-
-      	glBindVertexArray(m_models[i]->name());
-
-      	glDrawElements(GL_TRIANGLES, m_models[i]->indicesSize(), GL_UNSIGNED_INT, 0);
-      }
-
-      // Réinitialisation de la pipeline
-      glBindFramebuffer(GL_FRAMEBUFFER, 0);
-      glBindVertexArray(0);
-      glUseProgram(0);
-    }
-  void sceneRenderingPass()
-    {
-      uint i;
-
-      glUseProgram(m_material_program->name);
-
-      // Assignation des variables des shaders
-      m_material_program->uniform("view_position") = m_camera.position();
-
-      m_material_program->uniform("light_position") = m_pointLight.position();
-      m_material_program->uniform("light_color") = gk::VecColor(1, 1, 1);
-
-      m_material_program->uniform("ambient_light_enable") = m_ambient_light_enable;
-      m_material_program->uniform("ambient_light_color") = gk::VecColor(0.1f, 0.1f, 0.1f);
-
-      for (i = 0; i < m_models.size(); ++i)
-      {
-      	if (m_camera.isVisible(*m_models[i]))
-      	{
-	  gk::Transform mvpMat = m_camera.projection() * m_camera.view() * m_models[i]->transform();
-
-	  // Attributs caméra
-	  m_material_program->uniform("model_matrix") = m_models[i]->transform().matrix();
-	  m_material_program->uniform("normal_matrix") = m_models[i]->transform().normalMatrix();
-      	  m_material_program->uniform("mvp_matrix") = mvpMat.matrix();
-
-	  // Attributs matériau
-	  m_material_program->uniform("material_diffuse_color") = m_models[i]->getMaterialDiffuseColor();
-
-	  m_material_program->uniform("material_reflection_enable") = m_models[i]->isMaterialReflectionEnable();
-	  m_material_program->uniform("material_reflection_exponent") = m_models[i]->getMaterialReflectionExponent();
-	  m_material_program->uniform("material_reflection_color") = m_models[i]->getMaterialReflectionColor();
-
-	  // Attributs shadow mapping
-	  m_material_program->uniform("shadow_enable") = m_bShadowEnable;
-
-	  m_material_program->uniform("light_view_matrix") = m_lightViewMatrix.matrix();
-	  m_material_program->uniform("light_projection_matrix") = m_lightProjectionMatrix.matrix();
-	  m_material_program->uniform("light_viewport_matrix") = gk::Viewport(WINDOW_WIDTH, WINDOW_HEIGHT).matrix();
-
-	  m_material_program->uniform("light_depth_texture_width") = WINDOW_WIDTH;
-	  m_material_program->uniform("light_depth_texture_height") = WINDOW_HEIGHT;
-
-	  m_material_program->sampler("light_depth_texture") = 0;
-	  glActiveTexture(GL_TEXTURE0);
-	  glBindTexture(GL_TEXTURE_2D, m_light_depthmap);
-	  glGenerateMipmap(GL_TEXTURE_2D);
-	  glBindSampler(0, m_depth_sampler->name);
-
-      	  glBindVertexArray(m_models[i]->name());
-
-      	  glDrawElements(GL_TRIANGLES, m_models[i]->indicesSize(), GL_UNSIGNED_INT, 0);
-	}
-      }
-
-      // Réinitialisation des informations
-      glUseProgram(0);
-      glBindVertexArray(0);
-    }
-  void shadowMapViewRenderingPass()
-    {
-      glScissor(0, 0, WINDOW_WIDTH / 3, WINDOW_HEIGHT / 3);
-      glEnable(GL_SCISSOR_TEST);
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-      glDisable(GL_SCISSOR_TEST);
-      glViewport(0, 0, WINDOW_WIDTH / 3, WINDOW_HEIGHT / 3);
-
-      glUseProgram(m_depthmap_rendering_program->name);
-
-      m_depthmap_rendering_program->sampler("color_texture") = 0;
-      glActiveTexture(GL_TEXTURE0);
-      glBindTexture(GL_TEXTURE_2D, m_light_colormap);
-      glGenerateMipmap(GL_TEXTURE_2D);
-      glBindSampler(0, m_color_sampler->name);
-
-      m_depthmap_rendering_program->sampler("depth_texture") = 1;
-      glActiveTexture(GL_TEXTURE1);
-      glBindTexture(GL_TEXTURE_2D, m_light_depthmap);
-      glGenerateMipmap(GL_TEXTURE_2D);
-      glBindSampler(1, m_depth_sampler->name);
-
-      m_quad->draw();
-
-      glUseProgram(0);
-    }
-
-  int draw()
-    {
-      glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-      glClearColor(0, 0, 0, 1);
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-      // Scene rendering passes
-      m_time->start();
-
-      shadowMapRenderingPass();
-      sceneRenderingPass();
-      shadowMapViewRenderingPass();
-
-      m_time->stop();
-
-      // UI
-      glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-
-      m_widgets.begin();
-      m_widgets.beginGroup(nv::GroupFlags_GrowDownFromLeft);
-
-      m_widgets.doLabel(nv::Rect(), m_time->summary("draw").c_str());
-
-      m_widgets.doButton(nv::Rect(), "Eclairage ambient", &m_ambient_light_enable);
-      m_widgets.doButton(nv::Rect(), "Reflexions", &m_material_reflection_enable);
-      m_widgets.doButton(nv::Rect(), "Ombres", &m_bShadowEnable);
-
-      if (m_material_reflection_enable)
-      {
-	char str[128];
-
-	sprintf(str, "Exposant: %d", (int)m_material_reflection_exponent);
-	m_widgets.doLabel(nv::Rect(0, 0, 1000, 0), str);
-	m_widgets.doHorizontalSlider(nv::Rect(0, 0, 1000, 0), 1.f, 1000.f, &m_material_reflection_exponent);
-      }
-
-      m_widgets.endGroup();
-      m_widgets.end();
-
-      // MàJ des propriétés de matériau des bigguys
-      updateBigguyMaterialProperties();
-
-      // Présentation du rendu
-      present();
-
-      return 1;
-    }
-
-  virtual int update(const int time, const int delta)
-    {
-      // Gestion des évènements claviers
-      if (key('z'))
-	m_camera.localTranslate(gk::Vector(0, 0, -1));
-      if (key('q'))
-	m_camera.localTranslate(gk::Vector(-1, 0, 0));
-      if (key('d'))
-	m_camera.localTranslate(gk::Vector(1, 0, 0));
-      if (key('s'))
-	m_camera.localTranslate(gk::Vector(0, 0, 1));
-
-      if (key(' '))
-	m_pointlight_motion_enable = !m_pointlight_motion_enable;
-      if (key('p'))
-	m_pointlight_rotation_amount += 1.0f;
-      if (key('m'))
-	m_pointlight_rotation_amount -= 1.0f;
-
-      // Animation de la lumière
-      if (m_pointlight_motion_enable)
-      {
-	float pointlight_rotation_angle = (m_pointlight_rotation_amount * (float)delta) / 1000.0f;
-	gk::Transform pointlight_rotation = gk::Rotate(pointlight_rotation_angle, gk::Vector(0, 1, 0));
-	m_pointLight.position() = pointlight_rotation(m_pointLight.position());
-      }
-
-      return gk::App::update(time, delta);
-    }
-
-  void processKeyboardEvent( SDL_KeyboardEvent& event )
-    {
-      m_widgets.processKeyboardEvent(event);
-    }
-  void processWindowResize( SDL_WindowEvent& event )
-    {
-      m_widgets.reshape(event.data1, event.data2);
-    }
-  void processMouseButtonEvent( SDL_MouseButtonEvent& event )
-    {
-      m_widgets.processMouseButtonEvent(event);
-    }
-  void processMouseMotionEvent(SDL_MouseMotionEvent& event)
-    {
-      if (key(SDLK_LCTRL))
-      {
-	m_camera.yaw(m_mouse_rotation_amount * -event.xrel);
-	m_camera.pitch(m_mouse_rotation_amount * -event.yrel);
-      }
-
-      m_widgets.processMouseMotionEvent(event);
-    }
-
-private:
-
-  void updateBigguyMaterialProperties()
-    {
-      for (int i = 0; i < 4; ++i)
-      {
-	m_models[i]->enableMaterialReflection(m_material_reflection_enable);
-	m_models[i]->setMaterialReflectionExponent(m_material_reflection_exponent);
-      }
-    }
-
 };
 
-int main(int, char**)
-{
-  TpApp app;
-  app.run();
 
-  return 0;
+//! squelette d'application gKit.
+class TP : public gk::App
+{
+    nv::SdlContext m_widgets;
+    
+    gk::GLProgram *m_program;
+
+    int m_indices_size;
+
+    gk::GLBuffer *m_vertex_buffer[nb_obj];
+    gk::GLBuffer *m_index_buffer[nb_obj];
+    gk::GLVertexArray *m_vao[nb_obj];
+    /**/
+//    float rotate;
+//    float distance;
+//    float altitude;
+//    float pivote;
+    float GD;
+    float AA;
+    float RY;
+    float RX;
+
+    /**/
+    gk::GLCounter *m_time;
+    
+public:
+    // creation du contexte openGL et d'une fenetre
+    TP( )
+        :
+        gk::App()
+    {
+        // specifie le type de contexte openGL a creer :
+        gk::AppSettings settings;
+        settings.setGLVersion(3,3);     // version 3.3
+        settings.setGLCoreProfile();      // core profile
+        settings.setGLDebugContext();     // version debug pour obtenir les messages d'erreur en cas de probleme
+        
+        // cree le contexte et une fenetre
+        if(createWindow(512, 512, settings) < 0)
+            closeWindow();
+        
+        m_widgets.init();
+        m_widgets.reshape(windowWidth(), windowHeight());
+    }
+    
+    ~TP( ) {}
+    
+    int init( )
+    {
+        // compilation simplifiee d'un shader program
+        gk::programPath("shaders");
+        m_program= gk::createProgram("dFnormal.glsl");//dFnormal.glsl //core.glsl => vertex & fragment shader
+        if(m_program == gk::GLProgram::null())
+            return -1;
+
+
+        // charge un mesh//ensemble de triangle
+
+        gk::Mesh *mesh = new gk::Mesh ();
+        for(int i = 0 ; i < nb_obj; i++)
+        {
+                string name;
+                ostringstream convert;
+                convert << i;
+                if(i < 10)
+                name = "Bigguy/bigguy_0"+convert.str()+".obj";
+                else
+                name = "Bigguy/bigguy_"+convert.str()+".obj";
+
+                mesh = gk::MeshIO::readOBJ(name);
+
+            if(mesh == NULL)
+               return -1;
+
+            m_vao[i]= gk::createVertexArray();
+
+            // cree le buffer de position
+            m_vertex_buffer[i]= gk::createBuffer(GL_ARRAY_BUFFER, mesh->positions);
+
+            glVertexAttribPointer(m_program->attribute("position"), 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+            glEnableVertexAttribArray(m_program->attribute("position"));
+
+            m_index_buffer[i] = gk::createBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->indices);
+        }
+
+        // conserve le nombre d'indices (necessaire pour utiliser glDrawElements)
+        m_indices_size= mesh->indices.size();
+
+        // mesh n'est plus necessaire, les donnees sont transferees dans les buffers sur la carte graphique
+        delete mesh;
+
+        // nettoyage de l'etat opengl
+        glBindVertexArray(0);   // desactive le vertex array
+        glBindBuffer(GL_ARRAY_BUFFER, 0);       // desactive le buffer de positions
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);       // desactive le buffer d'indices
+        
+        // mesure du temps de dessin
+        m_time= gk::createTimer();
+        
+        /**/
+//        distance= -50;
+//        rotate= -40;
+//        altitude=0;
+//        pivote = 0;
+        GD = 0;
+        AA = -50;
+        RY = 0;
+        RX = 0;
+
+        /**/
+        // ok, tout c'est bien passe
+        return 0;
+    }
+    
+    int quit( )
+    {
+        return 0;
+    }
+
+    // a redefinir pour utiliser les widgets.
+    void processWindowResize( SDL_WindowEvent& event )
+    {
+        m_widgets.reshape(event.data1, event.data2);
+    }
+    
+    // a redefinir pour utiliser les widgets.
+    void processMouseButtonEvent( SDL_MouseButtonEvent& event )
+    {
+        m_widgets.processMouseButtonEvent(event);
+    }
+    
+    // a redefinir pour utiliser les widgets.
+    void processMouseMotionEvent( SDL_MouseMotionEvent& event )
+    {
+        m_widgets.processMouseMotionEvent(event);
+    }
+    
+    // a redefinir pour utiliser les widgets.
+    void processKeyboardEvent( SDL_KeyboardEvent& event )
+    {
+        m_widgets.processKeyboardEvent(event);
+    }
+    
+    int draw( )
+    {
+        if(key(SDLK_ESCAPE))
+            // fermer l'application si l'utilisateur appuie sur ESCAPE
+            closeWindow();
+        
+        if(key('r'))
+        {
+            key('r')= 0;
+            // recharge et recompile les shaders
+            gk::reloadPrograms();
+        }
+        
+        if(key('c'))
+        {
+            key('c')= 0;
+            // enregistre l'image opengl
+            gk::writeFramebuffer("screenshot.png");
+        }
+        
+        /**/
+//        if(key(SDLK_LEFT))
+//            rotate+= 0.1f;
+//        if(key(SDLK_RIGHT))
+//            rotate-= 0.1f;
+//        if(key(SDLK_UP))
+//            distance+= 0.1f;
+//        if(key(SDLK_DOWN))
+//            distance-= 0.1f;
+//        if(key(SDLK_z))
+//            altitude+=0.1f;
+//        if(key(SDLK_s))
+//            altitude-=0.1f;
+//        if(key(SDLK_d))
+//            pivote+=0.1f;
+//        if(key(SDLK_q))
+//            pivote-=0.1f;
+        if(key(SDLK_LEFT))
+            GD+=0.1f;
+        if(key(SDLK_RIGHT))
+            GD-=0.1f;
+        if(key(SDLK_UP))
+            AA+=0.1f;
+        if(key(SDLK_DOWN))
+            AA-=0.1f;
+        if(key(SDLK_d))
+            RY-=0.1f;
+        if(key(SDLK_q))
+            RY+=0.1f;
+        if(key(SDLK_z))
+            RX+=0.1f;
+        if(key(SDLK_s))
+            RX-=0.1f;
+        /**/
+
+        // redimensionne l'image en fonction de la fenetre de l'application
+        glViewport(0, 0, windowWidth(), windowHeight());
+        // efface l'image
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        
+        // mesurer le temps d'execution
+        m_time->start();
+
+        /**/
+        // transformations
+        gk::Transform model = gk::RotateY(30.f);//distance Zoom
+        gk::Transform view =  gk::Translate( gk::Vector(GD, 0.f, AA) ) * gk::RotateX(RX) * gk::RotateY(RY);
+        gk::Transform projection= gk::Perspective(50.f, 1.f, 1.f, 1000.f);
+        gk::Transform viewport= gk::Viewport(windowWidth(), windowHeight());
+
+        // composition des transformations
+        gk::Transform mv= view * model;
+        gk::Transform mvp= projection * mv;
+        gk::Transform mvpv= viewport * mvp;
+        /**/
+
+        // dessiner quelquechose
+        glUseProgram(m_program->name);
+
+
+        // parametrer le shader
+        m_program->uniform("mvpMatrix")= gk::Transform().matrix(); // transformation model view projection
+   /**/ m_program->uniform("mvpMatrix")= mvp.matrix();
+   /**/ m_program->uniform("mvpvInvMatrix")= mvpv.inverseMatrix();
+        m_program->uniform("diffuse_color")= gk::VecColor(1, 1, 0);     // couleur des fragments
+        
+        // selectionner un ensemble de buffers et d'attributs de sommets
+
+       /**********DRAW BOUCLE*******/
+        int x = -200;
+        int z = 0;
+        for(int i = 0; i < nb_obj; i++)
+        {
+             x += 20;
+            if((i % 9) == 0)
+            {
+                z += 20;
+                x = 0;
+            }
+
+           glBindVertexArray(m_vao[i]->name);
+           glDrawElements(GL_TRIANGLES, m_indices_size, GL_UNSIGNED_INT, 0);
+           m_program->uniform("mvpMatrix")= (mvp * gk::Translate(gk::Vector(x, 0.0, z))).matrix();
+
+
+        }
+
+        // nettoyage
+
+        glUseProgram(0);
+        glBindVertexArray(0);
+        
+        // mesurer le temps d'execution
+        m_time->stop();
+        
+        // afficher le temps d'execution
+        {
+            m_widgets.begin();
+            m_widgets.beginGroup(nv::GroupFlags_GrowDownFromLeft);
+            
+            m_widgets.doLabel(nv::Rect(), m_time->summary("draw").c_str());
+            
+            m_widgets.endGroup();
+            m_widgets.end();
+        }
+        
+        // afficher le dessin
+        present();
+        // continuer
+        return 1;
+    }
+};
+
+
+int main( int argc, char **argv )
+{
+    TP app;
+    app.run();
+    
+    return 0;
 }
+
