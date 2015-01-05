@@ -16,10 +16,8 @@
 
 #include "ProgramManager.h"
 
+#include "MyModel.h"
 #include "MyFpsCamera.h"
-
-#define WINDOW_WIDTH	768
-#define WINDOW_HEIGHT	768
 
 using namespace std;
 
@@ -69,7 +67,7 @@ public:
     settings.setGLCoreProfile();
     settings.setGLDebugContext();
 
-    if(createWindow(WINDOW_WIDTH, WINDOW_HEIGHT, settings) < 0)
+    if(createWindow(768, 768, settings) < 0)
       closeWindow();
 
     m_widgets.init();
@@ -80,10 +78,9 @@ public:
   int init( )
   {
     gk::programPath("shaders");
-    m_program= gk::createProgram("dFnormal.glsl");
+    m_program = gk::createProgram("dFnormal.glsl");
     if(m_program == gk::GLProgram::null())
       return -1;
-
 
     gk::Mesh* mesh = gk::MeshIO::readOBJ("Bigguy/bigguy_00.obj");
     if(mesh == NULL)
@@ -175,8 +172,6 @@ public:
 
     gk::Transform model;
     gk::Transform vp = _camera.ViewProjectionTransform();
-    gk::Transform viewport = gk::Viewport(windowWidth(), windowHeight());
-
     gk::Transform mvp = vp * model;
 
     glUseProgram(m_program->name);

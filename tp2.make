@@ -241,6 +241,10 @@ $(OBJDIR)/nvGLCorePainter.o: gKit/Widgets/nvGLCorePainter.cpp
 $(OBJDIR)/nvFont.o: gKit/Widgets/nvFont.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+
+$(OBJDIR)/MyModel.o: MyModel.cpp
+	@echo $(notdir $<)
+	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 $(OBJDIR)/tp2.o: tp2.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
