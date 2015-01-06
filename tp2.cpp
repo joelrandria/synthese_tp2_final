@@ -1,18 +1,14 @@
 #include "App.h"
 #include "Widgets/nvSDLContext.h"
 
-#include "Mesh.h"
-#include "MeshIO.h"
-
 #include "GL/GLQuery.h"
 #include "GL/GLTexture.h"
-#include "GL/GLBuffer.h"
-#include "GL/GLVertexArray.h"
 
 #include "ProgramManager.h"
 
-#include "MyModel.h"
 #include "MyFpsCamera.h"
+#include "MyModel.h"
+#include "MyModelFactory.h"
 
 #include <stdlib.h>
 #include <string>
@@ -23,21 +19,17 @@ using namespace std;
 
 class TP : public gk::App
 {
+  gk::GLCounter* m_time;
+  gk::GLProgram* m_program;
   nv::SdlContext m_widgets;
 
-  gk::GLProgram *m_program;
-
-  gk::GLCounter *m_time;
-
   MyFpsCamera _camera;
-
   std::vector<MyModel*> _models;
 
 public:
 
   TP()
     :gk::App(),
-
      _camera(gk::Point(0, 0, 50), gk::Vector(0, 1, 0), gk::Vector(0, 0, -1))
   {
     gk::AppSettings settings;
@@ -83,7 +75,7 @@ public:
       filenames.push_back(filename);
     }
 
-    _models = MyModel::loadSharedVertexArrayModels(filenames);
+    _models = MyModelFactory::createSharedVertexArrayModels(filenames);
     for (i = 0; i < _models.size(); ++i)
       _models[i]->setPosition(gk::Point((i % modelColumnCount) * modelSpacing, 0, ((int)i / modelColumnCount) * -modelSpacing));
 
@@ -121,7 +113,7 @@ public:
 
     glUseProgram(m_program->name);
 
-    glBindVertexArray(_models[0]->vao()->name);
+    glBindVertexArray(MyModel::globalVao()->name);
 
     for (i = 0; i < _models.size(); ++i)
     {

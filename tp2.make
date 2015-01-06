@@ -93,7 +93,9 @@ OBJECTS := \
 	$(OBJDIR)/nvPainter.o \
 	$(OBJDIR)/nvGLCorePainter.o \
 	$(OBJDIR)/nvFont.o \
+	$(OBJDIR)/MyFpsCamera.o \
 	$(OBJDIR)/MyModel.o \
+	$(OBJDIR)/MyModelFactory.o \
 	$(OBJDIR)/tp2.o \
 
 RESOURCES := \
@@ -243,7 +245,13 @@ $(OBJDIR)/nvFont.o: gKit/Widgets/nvFont.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 
+$(OBJDIR)/MyFpsCamera.o: MyFpsCamera.cpp
+	@echo $(notdir $<)
+	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 $(OBJDIR)/MyModel.o: MyModel.cpp
+	@echo $(notdir $<)
+	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+$(OBJDIR)/MyModelFactory.o: MyModelFactory.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 $(OBJDIR)/tp2.o: tp2.cpp
