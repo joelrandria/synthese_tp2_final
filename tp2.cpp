@@ -1,8 +1,3 @@
-#include <stdlib.h>
-#include <string>
-#include <iostream>
-#include <sstream>
-
 #include "App.h"
 #include "Widgets/nvSDLContext.h"
 
@@ -19,28 +14,12 @@
 #include "MyModel.h"
 #include "MyFpsCamera.h"
 
+#include <stdlib.h>
+#include <string>
+#include <iostream>
+#include <sstream>
+
 using namespace std;
-
-struct Format
-{
-  char text[1024];
-
-  Format( const char *_format, ... )
-  {
-    text[0] = 0;
-
-    va_list args;
-    va_start(args, _format);
-    vsnprintf(text, sizeof(text), _format, args);
-    va_end(args);
-  }
-  ~Format( ) {}
-
-  operator const char *( )
-  {
-    return text;
-  }
-};
 
 class TP : public gk::App
 {
@@ -48,12 +27,11 @@ class TP : public gk::App
 
   gk::GLProgram *m_program;
 
-  int m_indices_size;
-  gk::GLVertexArray *m_vao;
-
   gk::GLCounter *m_time;
 
   MyFpsCamera _camera;
+
+  std::vector<MyModel*> _models;
 
 public:
 
@@ -75,114 +53,87 @@ public:
   }
   ~TP( ) {}
 
-  int init( )
+  int init()
   {
     gk::programPath("shaders");
     m_program = gk::createProgram("dFnormal.glsl");
     if(m_program == gk::GLProgram::null())
       return -1;
 
-    gk::Mesh* mesh = gk::MeshIO::readOBJ("Bigguy/bigguy_00.obj");
-    if(mesh == NULL)
-      return -1;
-
-    m_vao = gk::createVertexArray();
-
-    gk::GLBuffer* vertexPositionBuffer = gk::createBuffer(GL_ARRAY_BUFFER, mesh->positions);
-    glVertexAttribPointer(m_program->attribute("position"), 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(m_program->attribute("position"));
-
-    gk::GLBuffer* indexBuffer = gk::createBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->indices);
-    m_indices_size = mesh->indices.size();
-
-    delete mesh;
-    delete vertexPositionBuffer;
-    delete indexBuffer;
-
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    loadModels();
 
     m_time = gk::createTimer();
 
     return 0;
   }
 
-  int quit( )
+  void loadModels()
+  {
+    uint i;
+
+    char filename[255];
+    std::vector<string> filenames;
+
+    const int modelSpacing = 25;
+    const int modelColumnCount = 7;
+
+    for (i = 0; i < 59; ++i)
+    {
+      sprintf(filename, "Bigguy/bigguy_%.2d.obj", i);
+      filenames.push_back(filename);
+    }
+
+    _models = MyModel::loadSharedVertexArrayModels(filenames);
+    for (i = 0; i < _models.size(); ++i)
+      _models[i]->setPosition(gk::Point((i % modelColumnCount) * modelSpacing, 0, ((int)i / modelColumnCount) * -modelSpacing));
+
+    printf("%d modèles chargés\r\n", (int)_models.size());
+  }
+
+  int quit()
   {
     return 0;
   }
 
-  void processWindowResize(SDL_WindowEvent& event)
-  {
-    m_widgets.reshape(event.data1, event.data2);
-  }
-  void processMouseButtonEvent(SDL_MouseButtonEvent& event)
-  {
-    m_widgets.processMouseButtonEvent(event);
-  }
-  void processMouseMotionEvent(SDL_MouseMotionEvent& event)
-  {
-    if (event.state & SDL_BUTTON(SDL_BUTTON_LEFT))
-    {
-      _camera.Yaw(-event.xrel);
-      _camera.Pitch(-event.yrel);
-    }
-
-    m_widgets.processMouseMotionEvent(event);
-  }
-  void processKeyboardEvent(SDL_KeyboardEvent& event)
-  {
-    m_widgets.processKeyboardEvent(event);
-  }
-
   int draw()
   {
-    if(key(SDLK_ESCAPE))
-      // fermer l'application si l'utilisateur appuie sur ESCAPE
-      closeWindow();
-
-    if(key('r'))
-    {
-      key('r')= 0;
-      // recharge et recompile les shaders
-      gk::reloadPrograms();
-    }
-    if(key('c'))
-    {
-      key('c')= 0;
-      // enregistre l'image opengl
-      gk::writeFramebuffer("screenshot.png");
-    }
-
-    if(key(SDLK_UP) || key(SDLK_z))
-      _camera.LocalTranslate(gk::Vector(0, 0, -1));
-    if(key(SDLK_DOWN) || key(SDLK_s))
-      _camera.LocalTranslate(gk::Vector(0, 0, 1));
-    if(key(SDLK_LEFT) || key(SDLK_q))
-      _camera.LocalTranslate(gk::Vector(-1, 0, 0));
-    if(key(SDLK_RIGHT) || key(SDLK_d))
-      _camera.LocalTranslate(gk::Vector(1, 0, 0));
-
     glViewport(0, 0, windowWidth(), windowHeight());
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    uint i;
+
+    MyModel* model;
+
+    gk::Transform m;
+    gk::Transform vp;
+    gk::Transform mvp;
+
     m_time->start();
 
-    gk::Transform model;
-    gk::Transform vp = _camera.ViewProjectionTransform();
-    gk::Transform mvp = vp * model;
+    vp = _camera.projectionViewTransform();
 
     glUseProgram(m_program->name);
 
-    m_program->uniform("mvpMatrix") = mvp.matrix();
-    m_program->uniform("diffuse_color") = gk::VecColor(1, 1, 0);
+    glBindVertexArray(_models[0]->vao()->name);
 
-    glBindVertexArray(m_vao->name);
-    glDrawElements(GL_TRIANGLES, m_indices_size, GL_UNSIGNED_INT, 0);
+    for (i = 0; i < _models.size(); ++i)
+    {
+      model = _models[i];
 
-    glUseProgram(0);
+      m = model->modelToWorldTransform();
+      mvp = vp * m;
+
+      m_program->uniform("mvpMatrix") = mvp.matrix();
+      m_program->uniform("diffuse_color") = gk::VecColor(1, 1, 0);
+
+      glDrawElementsBaseVertex(GL_TRIANGLES,
+			       model->indexCount(),
+			       GL_UNSIGNED_INT,
+			       (GLvoid*)(sizeof(GLuint) * model->indexOffset()),
+			       model->vertexOffset());
+    }
+
     glBindVertexArray(0);
 
     m_time->stop();
@@ -198,10 +149,62 @@ public:
       m_widgets.end();
     }
 
+    // Clavier
+    if (key(SDLK_ESCAPE))
+      closeWindow();
+
+    if (key('r'))
+    {
+      key('r') = 0;
+      gk::reloadPrograms();
+    }
+    if(key('c'))
+    {
+      key('c') = 0;
+      gk::writeFramebuffer("screenshot.png");
+    }
+
+    if (key(SDLK_UP) || key(SDLK_z))
+      _camera.localTranslate(gk::Vector(0, 0, -1));
+    if (key(SDLK_DOWN) || key(SDLK_s))
+      _camera.localTranslate(gk::Vector(0, 0, 1));
+    if (key(SDLK_LEFT) || key(SDLK_q))
+      _camera.localTranslate(gk::Vector(-1, 0, 0));
+    if (key(SDLK_RIGHT) || key(SDLK_d))
+      _camera.localTranslate(gk::Vector(1, 0, 0));
+    if (key(SDLK_PAGEUP))
+      _camera.translate(gk::Vector(0, 1, 0));
+    if (key(SDLK_PAGEDOWN))
+      _camera.translate(gk::Vector(0, -1, 0));
+
     present();
 
     return 1;
   }
+
+  void processWindowResize(SDL_WindowEvent& event)
+  {
+    m_widgets.reshape(event.data1, event.data2);
+  }
+  void processMouseButtonEvent(SDL_MouseButtonEvent& event)
+  {
+    m_widgets.processMouseButtonEvent(event);
+  }
+  void processMouseMotionEvent(SDL_MouseMotionEvent& event)
+  {
+    if (event.state & SDL_BUTTON(SDL_BUTTON_LEFT))
+    {
+      _camera.yaw(-event.xrel);
+      _camera.pitch(-event.yrel);
+    }
+
+    m_widgets.processMouseMotionEvent(event);
+  }
+  void processKeyboardEvent(SDL_KeyboardEvent& event)
+  {
+    m_widgets.processKeyboardEvent(event);
+  }
+
 };
 
 

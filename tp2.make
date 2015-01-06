@@ -93,6 +93,7 @@ OBJECTS := \
 	$(OBJDIR)/nvPainter.o \
 	$(OBJDIR)/nvGLCorePainter.o \
 	$(OBJDIR)/nvFont.o \
+	$(OBJDIR)/MyModel.o \
 	$(OBJDIR)/tp2.o \
 
 RESOURCES := \
