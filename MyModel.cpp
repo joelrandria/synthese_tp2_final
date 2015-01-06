@@ -7,6 +7,8 @@
 
 #include <stdio.h>
 
+#define VERTEX_BYTESIZE	(9 * sizeof(GLfloat))
+
 std::vector<gk::GLVertexArray*> MyModel::_vaos;
 
 void MyModel::print() const
@@ -36,6 +38,7 @@ std::vector<MyModel*> MyModel::loadSharedVertexArrayModels(const std::vector<gk:
 {
   uint i;
   uint j;
+  int vertexCount;
 
   gk::Mesh* mesh;
 
@@ -47,6 +50,8 @@ std::vector<MyModel*> MyModel::loadSharedVertexArrayModels(const std::vector<gk:
 
   gk::GLVertexArray* vao;
 
+  vertexCount = 0;
+
   vao = gk::createVertexArray();
   _vaos.push_back(vao);
 
@@ -55,7 +60,14 @@ std::vector<MyModel*> MyModel::loadSharedVertexArrayModels(const std::vector<gk:
     mesh = meshes[i];
 
     for (j = 0; j < mesh->positions.size(); ++j)
+    {
+      ++vertexCount;
+
       vertexAttributes.push_back(mesh->positions[j]);
+      vertexAttributes.push_back(mesh->normals[j]);
+      vertexAttributes.push_back(mesh->texcoords[j]);
+    }
+
     for (j = 0; j < mesh->indices.size(); ++j)
       indices.push_back(mesh->indices[j]);
 
@@ -64,14 +76,20 @@ std::vector<MyModel*> MyModel::loadSharedVertexArrayModels(const std::vector<gk:
     model->_name = mesh->filename;
     model->_indexCount = mesh->indices.size();
     model->_indexOffset = indices.size() - mesh->indices.size();
-    model->_vertexOffset = vertexAttributes.size() - mesh->positions.size();
+    model->_vertexOffset = vertexCount - mesh->positions.size();
 
     models.push_back(model);
   }
 
   gk::GLBuffer* vertexAttributeBuffer = gk::createBuffer(GL_ARRAY_BUFFER, vertexAttributes);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, VERTEX_BYTESIZE, 0);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, VERTEX_BYTESIZE, (GLvoid*)(3 * sizeof(GLfloat)));
+  glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, VERTEX_BYTESIZE, (GLvoid*)(6 * sizeof(GLfloat)));
+
   glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(1);
+  glEnableVertexAttribArray(2);
 
   gk::GLBuffer* indexBuffer = gk::createBuffer(GL_ELEMENT_ARRAY_BUFFER, indices);
 
@@ -84,8 +102,8 @@ std::vector<MyModel*> MyModel::loadSharedVertexArrayModels(const std::vector<std
 {
   uint i;
   gk::Mesh* mesh;
-  std::vector<gk::Mesh*> meshes;
   std::vector<MyModel*> models;
+  std::vector<gk::Mesh*> meshes;
 
   for (i = 0; i < filenames.size(); ++i)
   {

@@ -31,10 +31,8 @@ class MyFpsCamera
     updateTransforms();
   }
 
-  gk::Transform projectionViewTransform() const
-  {
-    return (_projectionTransform * _worldToViewTransform);
-  }
+  gk::Transform viewTransform() const { return _worldToViewTransform; }
+  gk::Transform projectionTransform() const { return _projectionTransform; }
 
   void pitch(float localAngleDeg)
   {

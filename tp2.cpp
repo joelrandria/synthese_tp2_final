@@ -56,7 +56,7 @@ public:
   int init()
   {
     gk::programPath("shaders");
-    m_program = gk::createProgram("dFnormal.glsl");
+    m_program = gk::createProgram("my_material.glsl");
     if(m_program == gk::GLProgram::null())
       return -1;
 
@@ -105,13 +105,19 @@ public:
 
     MyModel* model;
 
-    gk::Transform m;
+    gk::Transform v;
+    gk::Transform p;
     gk::Transform vp;
+
+    gk::Transform m;
+    gk::Transform mv;
     gk::Transform mvp;
 
     m_time->start();
 
-    vp = _camera.projectionViewTransform();
+    v = _camera.viewTransform();
+    p = _camera.projectionTransform();
+    vp = p * v;
 
     glUseProgram(m_program->name);
 
@@ -122,9 +128,12 @@ public:
       model = _models[i];
 
       m = model->modelToWorldTransform();
+      mv = v * m;
       mvp = vp * m;
 
-      m_program->uniform("mvpMatrix") = mvp.matrix();
+      m_program->uniform("mvp_matrix") = mvp.matrix();
+      m_program->uniform("mv_normalmatrix") = mv.normalMatrix();
+
       m_program->uniform("diffuse_color") = gk::VecColor(1, 1, 0);
 
       glDrawElementsBaseVertex(GL_TRIANGLES,
