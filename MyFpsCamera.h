@@ -25,8 +25,8 @@ class MyFpsCamera
   gk::Transform viewTransform() const { return _worldToViewTransform; }
   gk::Transform projectionTransform() const { return _projectionTransform; }
 
-  void pitch(float localAngleDeg);
-  void yaw(float globalAngleDeg);
+  void pitch(float localDegreeAngle);
+  void yaw(float globalDegreeAngle);
 
   void translate(const gk::Vector& translation);
   void localTranslate(const gk::Vector& translation);

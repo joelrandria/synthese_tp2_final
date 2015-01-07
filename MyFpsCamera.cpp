@@ -10,18 +10,18 @@ MyFpsCamera::MyFpsCamera(const gk::Point& position, const gk::Vector& up, const 
   updateTransforms();
 }
 
-void MyFpsCamera::pitch(float localAngleDeg)
+void MyFpsCamera::pitch(float localDegreeAngle)
 {
-  gk::Transform r = gk::Rotate(localAngleDeg, _right);
+  gk::Transform r = gk::Rotate(localDegreeAngle, _right);
 
   _up = r(_up);
   _front = r(_front);
 
   updateTransforms();
 }
-void MyFpsCamera::yaw(float globalAngleDeg)
+void MyFpsCamera::yaw(float globalDegreeAngle)
 {
-  gk::Transform r = gk::RotateY(globalAngleDeg);
+  gk::Transform r = gk::RotateY(globalDegreeAngle);
 
   _up = r(_up);
   _right = r(_right);
