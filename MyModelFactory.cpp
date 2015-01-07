@@ -17,6 +17,8 @@ GLuint MyModelFactory::_sharedVertexBuffer = 0;
 int MyModelFactory::_totalIndexCount = 0;
 GLuint MyModelFactory::_sharedIndexBuffer = 0;
 
+std::map<std::string, MyMeshGpuLocation> MyModelFactory::_meshGpuLocations;
+
 void MyModelFactory::bindSharedBuffers(bool bind)
 {
   if (MyModel::_sharedVertexArray == 0)
@@ -48,66 +50,75 @@ void MyModelFactory::bindSharedBuffers(bool bind)
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bind ? _sharedIndexBuffer : 0);
 }
 
-MyModel* MyModelFactory::createModel(gk::Mesh* mesh)
+MyModel* MyModelFactory::createModel(const std::string& filename)
+{
+  MyModel* model;
+
+  model = new MyModel();
+  model->_name = filename;
+  model->_meshGpuLocation = getMeshGpuLocation(filename);
+
+  return model;
+}
+
+MyMeshGpuLocation MyModelFactory::getMeshGpuLocation(const std::string& filename)
+{
+  gk::Mesh* mesh;
+
+  MeshGpuLocationMap::iterator it;
+  MyMeshGpuLocation meshGpuLocation;
+
+  it = _meshGpuLocations.find(filename);
+  if (it != _meshGpuLocations.end())
+    return (it->second);
+
+  mesh = gk::MeshIO::readOBJ(filename);
+  if (mesh == 0)
+  {
+    fprintf(stderr, "MyModelFactory::getMeshGpuLocation(): Impossible de charger le mesh '%s'\r\n", filename.c_str());
+    exit(-1);
+  }
+
+  meshGpuLocation = getMeshGpuLocation(mesh);
+  _meshGpuLocations[filename] = meshGpuLocation;
+
+  delete mesh;
+
+  return meshGpuLocation;
+}
+MyMeshGpuLocation MyModelFactory::getMeshGpuLocation(gk::Mesh* mesh)
 {
   uint i;
 
-  MyModel* model;
-  int modelVertexCount;
+  int meshVertexCount;
+  std::vector<gk::Vec3> meshVertices;
 
-  std::vector<gk::Vec3> modelVertices;
+  MyMeshGpuLocation meshGpuLocation;
 
-  modelVertexCount = 0;
+  meshVertexCount = 0;
 
   for (i = 0; i < mesh->positions.size(); ++i)
   {
-    ++modelVertexCount;
+    ++meshVertexCount;
 
-    modelVertices.push_back(mesh->positions[i]);
-    modelVertices.push_back(mesh->normals[i]);
-    modelVertices.push_back(mesh->texcoords[i]);
+    meshVertices.push_back(mesh->positions[i]);
+    meshVertices.push_back(mesh->normals[i]);
+    meshVertices.push_back(mesh->texcoords[i]);
   }
 
-  model = new MyModel();
-  model->_name = mesh->filename;
-  model->_indexCount = mesh->indices.size();
-  model->_indexOffset = _totalIndexCount;
-  model->_vertexOffset = _totalVertexCount;
+  meshGpuLocation.indexCount = mesh->indices.size();
+  meshGpuLocation.indexOffset = _totalIndexCount;
+  meshGpuLocation.vertexOffset = _totalVertexCount;
 
   bindSharedBuffers(true);
 
-  glBufferSubData(GL_ARRAY_BUFFER,
-		  _totalVertexCount * VERTEX_BYTESIZE,
-		  modelVertexCount * VERTEX_BYTESIZE,
-		  &modelVertices.front());
-
-  glBufferSubData(GL_ELEMENT_ARRAY_BUFFER,
-		  _totalIndexCount * sizeof(GLuint),
-		  mesh->indices.size() * sizeof(GLuint),
-		  &mesh->indices.front());
+  glBufferSubData(GL_ARRAY_BUFFER, _totalVertexCount * VERTEX_BYTESIZE, meshVertexCount * VERTEX_BYTESIZE, &meshVertices.front());
+  glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, _totalIndexCount * sizeof(GLuint), mesh->indices.size() * sizeof(GLuint), &mesh->indices.front());
 
   bindSharedBuffers(false);
 
   _totalVertexCount +=  mesh->positions.size();
   _totalIndexCount += mesh->indices.size();
 
-  return model;
-}
-MyModel* MyModelFactory::createModel(const std::string& filename)
-{
-  MyModel* model;
-  gk::Mesh* mesh;
-
-  mesh = gk::MeshIO::readOBJ(filename);
-  if (mesh == 0)
-  {
-    fprintf(stderr, "MyModelFactory::createModel(): Impossible de charger le mesh '%s'\r\n", filename.c_str());
-    exit(-1);
-  }
-
-  model = createModel(mesh);
-
-  delete mesh;
-
-  return model;
+  return meshGpuLocation;
 }

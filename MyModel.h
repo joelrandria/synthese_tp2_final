@@ -4,6 +4,8 @@
 #include "Transform.h"
 #include "GLResource.h"
 
+#include "MyMeshGpuLocation.h"
+
 #include <vector>
 #include <string>
 
@@ -18,9 +20,7 @@ class MyModel
   gk::Point _position;
   gk::Transform _modelToWorldTransform;
 
-  int _indexCount;
-  int _indexOffset;
-  int _vertexOffset;
+  MyMeshGpuLocation _meshGpuLocation;
 
   static GLuint _sharedVertexArray;
 
@@ -29,11 +29,7 @@ class MyModel
   MyModel();
 
   const std::string& name() const { return _name; }
-
-  int indexCount() const { return _indexCount; }
-  int indexOffset() const { return _indexOffset; }
-  int vertexOffset() const { return _vertexOffset; }
-
+  const MyMeshGpuLocation& meshGpuInfo() const { return _meshGpuLocation; }
   const gk::Transform& modelToWorldTransform() const { return _modelToWorldTransform; }
 
   void print() const;

@@ -3,6 +3,9 @@
 
 #include "GLResource.h"
 
+#include "MyMeshGpuLocation.h"
+
+#include <map>
 #include <vector>
 #include <string>
 
@@ -12,6 +15,8 @@ namespace gk
 {
   class Mesh;
 }
+
+typedef std::map<std::string, MyMeshGpuLocation> MeshGpuLocationMap;
 
 class MyModelFactory
 {
@@ -23,14 +28,18 @@ class MyModelFactory
   static int _totalIndexCount;
   static GLuint _sharedIndexBuffer;
 
+  static MeshGpuLocationMap _meshGpuLocations;
+
+ public:
+
+  static MyModel* createModel(const std::string& filename);
+
  private:
 
   static void bindSharedBuffers(bool bind);
 
- public:
-
-  static MyModel* createModel(gk::Mesh* mesh);
-  static MyModel* createModel(const std::string& filename);
+  static MyMeshGpuLocation getMeshGpuLocation(gk::Mesh* mesh);
+  static MyMeshGpuLocation getMeshGpuLocation(const std::string& filename);
 };
 
 #endif

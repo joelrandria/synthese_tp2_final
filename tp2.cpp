@@ -70,9 +70,9 @@ public:
     const int modelSpacing = 25;
     const int modelColumnCount = 7;
 
-    for (i = 0; i < 59; ++i)
+    for (i = 0; i < 100; ++i)
     {
-      sprintf(filename, "Bigguy/bigguy_%.2d.obj", i);
+      sprintf(filename, "Bigguy/bigguy_%.2d.obj", (i % 59));
 
       model = MyModelFactory::createModel(filename);
       model->setPosition(gk::Point((i % modelColumnCount) * modelSpacing, 0, ((int)i / modelColumnCount) * -modelSpacing));
@@ -130,10 +130,10 @@ public:
       m_program->uniform("diffuse_color") = gk::VecColor(1, 1, 0);
 
       glDrawElementsBaseVertex(GL_TRIANGLES,
-			       model->indexCount(),
+			       model->meshGpuInfo().indexCount,
 			       GL_UNSIGNED_INT,
-			       (GLvoid*)(sizeof(GLuint) * model->indexOffset()),
-			       model->vertexOffset());
+			       (GLvoid*)(sizeof(GLuint) * model->meshGpuInfo().indexOffset),
+			       model->meshGpuInfo().vertexOffset);
     }
 
     glBindVertexArray(0);

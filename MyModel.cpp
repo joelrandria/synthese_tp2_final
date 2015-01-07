@@ -5,19 +5,13 @@
 GLuint MyModel::_sharedVertexArray = 0;
 
 MyModel::MyModel()
-  :_indexCount(0),
-   _indexOffset(0),
-   _vertexOffset(0)
 {
 }
 
 void MyModel::print() const
 {
-  printf("Modèle '%s': index count = %d, index offset = %d, vertex offset = %d\r\n",
-	 _name.c_str(),
-	 _indexCount,
-	 _indexOffset,
-	 _vertexOffset);
+  printf("Modèle '%s': ", _name.c_str());
+  _meshGpuLocation.print();
 }
 
 void MyModel::setPosition(const gk::Point& position)
