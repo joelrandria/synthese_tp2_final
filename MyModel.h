@@ -2,16 +2,10 @@
 #define __MYMODEL_H__
 
 #include "Transform.h"
-
-#include "GL/GLVertexArray.h"
+#include "GLResource.h"
 
 #include <vector>
 #include <string>
-
-namespace gk
-{
-  class GLVertexArray;
-}
 
 class MyModel
 {
@@ -28,9 +22,11 @@ class MyModel
   int _indexOffset;
   int _vertexOffset;
 
-  static gk::GLVertexArray* _globalVao;
+  static GLuint _sharedVertexArray;
 
  public:
+
+  MyModel();
 
   const std::string& name() const { return _name; }
 
@@ -44,12 +40,11 @@ class MyModel
 
   void setPosition(const gk::Point& position);
 
-  static gk::GLVertexArray* globalVao() { return _globalVao; }
+  static GLuint sharedVertexArray() { return _sharedVertexArray; }
 
  private:
 
   void updateTransforms();
-
 };
 
 #endif

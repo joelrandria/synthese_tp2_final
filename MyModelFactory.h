@@ -1,6 +1,8 @@
 #ifndef __MYMODELFACTORY_H__
 #define __MYMODELFACTORY_H__
 
+#include "GLResource.h"
+
 #include <vector>
 #include <string>
 
@@ -13,11 +15,22 @@ namespace gk
 
 class MyModelFactory
 {
+ private:
+
+  static int _totalVertexCount;
+  static GLuint _sharedVertexBuffer;
+
+  static int _totalIndexCount;
+  static GLuint _sharedIndexBuffer;
+
+ private:
+
+  static void bindSharedBuffers(bool bind);
+
  public:
 
-  static std::vector<MyModel*> createSharedVertexArrayModels(const std::vector<gk::Mesh*>& mesh);
-  static std::vector<MyModel*> createSharedVertexArrayModels(const std::vector<std::string>& filenames);
-
+  static MyModel* createModel(gk::Mesh* mesh);
+  static MyModel* createModel(const std::string& filename);
 };
 
 #endif

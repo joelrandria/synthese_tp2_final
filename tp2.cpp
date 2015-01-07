@@ -64,7 +64,8 @@ public:
     uint i;
 
     char filename[255];
-    std::vector<string> filenames;
+
+    MyModel* model;
 
     const int modelSpacing = 25;
     const int modelColumnCount = 7;
@@ -72,12 +73,12 @@ public:
     for (i = 0; i < 59; ++i)
     {
       sprintf(filename, "Bigguy/bigguy_%.2d.obj", i);
-      filenames.push_back(filename);
-    }
 
-    _models = MyModelFactory::createSharedVertexArrayModels(filenames);
-    for (i = 0; i < _models.size(); ++i)
-      _models[i]->setPosition(gk::Point((i % modelColumnCount) * modelSpacing, 0, ((int)i / modelColumnCount) * -modelSpacing));
+      model = MyModelFactory::createModel(filename);
+      model->setPosition(gk::Point((i % modelColumnCount) * modelSpacing, 0, ((int)i / modelColumnCount) * -modelSpacing));
+
+      _models.push_back(model);
+    }
 
     printf("%d modèles chargés\r\n", (int)_models.size());
   }
@@ -113,7 +114,7 @@ public:
 
     glUseProgram(m_program->name);
 
-    glBindVertexArray(MyModel::globalVao()->name);
+    glBindVertexArray(MyModel::sharedVertexArray());
 
     for (i = 0; i < _models.size(); ++i)
     {

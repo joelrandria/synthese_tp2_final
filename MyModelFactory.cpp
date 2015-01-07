@@ -3,94 +3,111 @@
 #include "Mesh.h"
 #include "MeshIO.h"
 
-#include "GL/GLBuffer.h"
-#include "GL/GLVertexArray.h"
-
 #include "MyModel.h"
 
-#define VERTEX_BYTESIZE	(9 * sizeof(GLfloat))
+#include <stdio.h>
 
-std::vector<MyModel*> MyModelFactory::createSharedVertexArrayModels(const std::vector<gk::Mesh*>& meshes)
+#define VERTEX_BYTESIZE			(9 * sizeof(GLfloat))
+#define SHARED_VERTEX_BUFFER_BYTESIZE	16 * 1024 * 1024
+#define SHARED_INDEX_BUFFER_BYTESIZE	64 * 1024 * 1024
+
+int MyModelFactory::_totalVertexCount = 0;
+GLuint MyModelFactory::_sharedVertexBuffer = 0;
+
+int MyModelFactory::_totalIndexCount = 0;
+GLuint MyModelFactory::_sharedIndexBuffer = 0;
+
+void MyModelFactory::bindSharedBuffers(bool bind)
+{
+  if (MyModel::_sharedVertexArray == 0)
+  {
+    glGenVertexArrays(1, &MyModel::_sharedVertexArray);
+    glBindVertexArray(MyModel::_sharedVertexArray);
+
+    glGenBuffers(1, &_sharedVertexBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, _sharedVertexBuffer);
+
+    glBufferData(GL_ARRAY_BUFFER, SHARED_VERTEX_BUFFER_BYTESIZE, 0, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, VERTEX_BYTESIZE, 0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, VERTEX_BYTESIZE, (GLvoid*)(3 * sizeof(GLfloat)));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, VERTEX_BYTESIZE, (GLvoid*)(6 * sizeof(GLfloat)));
+
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
+
+    glGenBuffers(1, &_sharedIndexBuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _sharedIndexBuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, SHARED_INDEX_BUFFER_BYTESIZE, 0, GL_STATIC_DRAW);
+
+    glBindVertexArray(0);
+  }
+
+  glBindBuffer(GL_ARRAY_BUFFER, bind ? _sharedVertexBuffer : 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bind ? _sharedIndexBuffer : 0);
+}
+
+MyModel* MyModelFactory::createModel(gk::Mesh* mesh)
 {
   uint i;
-  uint j;
-  int vertexCount;
-
-  gk::Mesh* mesh;
 
   MyModel* model;
-  std::vector<MyModel*> models;
+  int modelVertexCount;
 
-  std::vector<unsigned int> indices;
-  std::vector<gk::Vec3> vertexAttributes;
+  std::vector<gk::Vec3> modelVertices;
 
-  vertexCount = 0;
+  modelVertexCount = 0;
 
-  if (MyModel::_globalVao == 0)
-    MyModel::_globalVao = gk::createVertexArray();
-
-  for (i = 0; i < meshes.size(); ++i)
+  for (i = 0; i < mesh->positions.size(); ++i)
   {
-    mesh = meshes[i];
+    ++modelVertexCount;
 
-    for (j = 0; j < mesh->positions.size(); ++j)
-    {
-      ++vertexCount;
-
-      vertexAttributes.push_back(mesh->positions[j]);
-      vertexAttributes.push_back(mesh->normals[j]);
-      vertexAttributes.push_back(mesh->texcoords[j]);
-    }
-
-    for (j = 0; j < mesh->indices.size(); ++j)
-      indices.push_back(mesh->indices[j]);
-
-    model = new MyModel();
-    model->_name = mesh->filename;
-    model->_indexCount = mesh->indices.size();
-    model->_indexOffset = indices.size() - mesh->indices.size();
-    model->_vertexOffset = vertexCount - mesh->positions.size();
-
-    models.push_back(model);
+    modelVertices.push_back(mesh->positions[i]);
+    modelVertices.push_back(mesh->normals[i]);
+    modelVertices.push_back(mesh->texcoords[i]);
   }
 
-  gk::GLBuffer* vertexAttributeBuffer = gk::createBuffer(GL_ARRAY_BUFFER, vertexAttributes);
+  model = new MyModel();
+  model->_name = mesh->filename;
+  model->_indexCount = mesh->indices.size();
+  model->_indexOffset = _totalIndexCount;
+  model->_vertexOffset = _totalVertexCount;
 
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, VERTEX_BYTESIZE, 0);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, VERTEX_BYTESIZE, (GLvoid*)(3 * sizeof(GLfloat)));
-  glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, VERTEX_BYTESIZE, (GLvoid*)(6 * sizeof(GLfloat)));
+  bindSharedBuffers(true);
 
-  glEnableVertexAttribArray(0);
-  glEnableVertexAttribArray(1);
-  glEnableVertexAttribArray(2);
+  glBufferSubData(GL_ARRAY_BUFFER,
+		  _totalVertexCount * VERTEX_BYTESIZE,
+		  modelVertexCount * VERTEX_BYTESIZE,
+		  &modelVertices.front());
 
-  gk::GLBuffer* indexBuffer = gk::createBuffer(GL_ELEMENT_ARRAY_BUFFER, indices);
+  glBufferSubData(GL_ELEMENT_ARRAY_BUFFER,
+		  _totalIndexCount * sizeof(GLuint),
+		  mesh->indices.size() * sizeof(GLuint),
+		  &mesh->indices.front());
 
-  delete vertexAttributeBuffer;
-  delete indexBuffer;
+  bindSharedBuffers(false);
 
-  return models;
+  _totalVertexCount +=  mesh->positions.size();
+  _totalIndexCount += mesh->indices.size();
+
+  return model;
 }
-std::vector<MyModel*> MyModelFactory::createSharedVertexArrayModels(const std::vector<std::string>& filenames)
+MyModel* MyModelFactory::createModel(const std::string& filename)
 {
-  uint i;
+  MyModel* model;
   gk::Mesh* mesh;
-  std::vector<MyModel*> models;
-  std::vector<gk::Mesh*> meshes;
 
-  for (i = 0; i < filenames.size(); ++i)
+  mesh = gk::MeshIO::readOBJ(filename);
+  if (mesh == 0)
   {
-    mesh = gk::MeshIO::readOBJ(filenames[i]);
-    if (mesh == 0)
-      continue;
-
-    meshes.push_back(mesh);
+    fprintf(stderr, "MyModelFactory::createModel(): Impossible de charger le mesh '%s'\r\n", filename.c_str());
+    exit(-1);
   }
 
-  models = createSharedVertexArrayModels(meshes);
+  model = createModel(mesh);
 
-  for (i = 0; i < meshes.size(); ++i)
-    delete meshes[i];
+  delete mesh;
 
-  return models;
+  return model;
 }

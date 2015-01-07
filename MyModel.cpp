@@ -2,7 +2,14 @@
 
 #include <stdio.h>
 
-gk::GLVertexArray* MyModel::_globalVao = 0;
+GLuint MyModel::_sharedVertexArray = 0;
+
+MyModel::MyModel()
+  :_indexCount(0),
+   _indexOffset(0),
+   _vertexOffset(0)
+{
+}
 
 void MyModel::print() const
 {
