@@ -1,5 +1,7 @@
 #include "MyModelFactory.h"
 
+#include "Image.h"
+#include "ImageIO.h"
 #include "Mesh.h"
 #include "MeshIO.h"
 
@@ -18,6 +20,7 @@ int MyModelFactory::_totalIndexCount = 0;
 GLuint MyModelFactory::_sharedIndexBuffer = 0;
 
 std::map<std::string, MyMeshGpuLocation> MyModelFactory::_meshGpuLocations;
+std::map<std::string, GLuint> MyModelFactory::_textures;
 
 void MyModelFactory::bindSharedBuffers(bool bind)
 {
@@ -50,13 +53,14 @@ void MyModelFactory::bindSharedBuffers(bool bind)
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bind ? _sharedIndexBuffer : 0);
 }
 
-MyModel* MyModelFactory::createModel(const std::string& filename)
+MyModel* MyModelFactory::createModel(const std::string& meshFilename, const std::string& diffuseTextureFilename)
 {
   MyModel* model;
 
   model = new MyModel();
-  model->_name = filename;
-  model->_meshGpuLocation = getMeshGpuLocation(filename);
+  model->_name = meshFilename;
+  model->_meshGpuLocation = getMeshGpuLocation(meshFilename);
+  model->_diffuseTexture = getTexture(diffuseTextureFilename);
 
   return model;
 }
@@ -121,4 +125,42 @@ MyMeshGpuLocation MyModelFactory::getMeshGpuLocation(gk::Mesh* mesh)
   _totalIndexCount += mesh->indices.size();
 
   return meshGpuLocation;
+}
+
+GLuint MyModelFactory::getTexture(const std::string& filename)
+{
+  GLuint texture;
+  TextureMap::iterator it;
+
+  texture = 0;
+
+  it = _textures.find(filename);
+  if (it != _textures.end())
+    return it->second;
+
+  gk::Image* image = gk::ImageIO::readImage(filename);
+  if (image == 0)
+  {
+    fprintf(stderr, "MyModelFactory::getTexture(): Impossible de charger la texture '%s'\r\n", filename.c_str());
+    exit(-1);
+  }
+
+  texture = getTexture(image);
+  _textures[filename] = texture;
+
+  delete image;
+
+  return texture;
+}
+GLuint MyModelFactory::getTexture(gk::Image* image)
+{
+  GLuint texture;
+
+  glGenTextures(1, &texture);
+  glBindTexture(GL_TEXTURE_2D, texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image->width, image->height, 0, GL_RGB, GL_UNSIGNED_BYTE, image->data);
+  glGenerateMipmap(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  return texture;
 }

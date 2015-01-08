@@ -13,10 +13,12 @@ class MyModel;
 
 namespace gk
 {
+  class Image;
   class Mesh;
 }
 
 typedef std::map<std::string, MyMeshGpuLocation> MeshGpuLocationMap;
+typedef std::map<std::string, GLuint> TextureMap;
 
 class MyModelFactory
 {
@@ -29,10 +31,11 @@ class MyModelFactory
   static GLuint _sharedIndexBuffer;
 
   static MeshGpuLocationMap _meshGpuLocations;
+  static TextureMap _textures;
 
  public:
 
-  static MyModel* createModel(const std::string& filename);
+  static MyModel* createModel(const std::string& meshFilename, const std::string& diffuseTextureFilename);
 
  private:
 
@@ -40,6 +43,9 @@ class MyModelFactory
 
   static MyMeshGpuLocation getMeshGpuLocation(gk::Mesh* mesh);
   static MyMeshGpuLocation getMeshGpuLocation(const std::string& filename);
+
+  static GLuint getTexture(gk::Image* image);
+  static GLuint getTexture(const std::string& filename);
 };
 
 #endif

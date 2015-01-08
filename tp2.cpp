@@ -1,10 +1,11 @@
 #include "App.h"
 #include "Widgets/nvSDLContext.h"
 
-#include "GL/GLQuery.h"
-#include "GL/GLTexture.h"
-
 #include "ProgramManager.h"
+
+#include "GL/GLQuery.h"
+#include "GL/GLSampler.h"
+#include "GL/GLTexture.h"
 
 #include "MyFpsCamera.h"
 #include "MyModel.h"
@@ -43,7 +44,9 @@ public:
     m_widgets.init();
     m_widgets.reshape(windowWidth(), windowHeight());
   }
-  ~TP( ) {}
+  ~TP()
+  {
+  }
 
   int init()
   {
@@ -74,7 +77,7 @@ public:
     {
       sprintf(filename, "Bigguy/bigguy_%.2d.obj", (i % 59));
 
-      model = MyModelFactory::createModel(filename);
+      model = MyModelFactory::createModel(filename, "bigguy_ambient.png");
       model->setPosition(gk::Point((i % modelColumnCount) * modelSpacing, 0, ((int)i / modelColumnCount) * -modelSpacing));
 
       _models.push_back(model);
@@ -90,10 +93,6 @@ public:
 
   int draw()
   {
-    glViewport(0, 0, windowWidth(), windowHeight());
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     uint i;
 
     MyModel* model;
@@ -112,7 +111,11 @@ public:
     p = _camera.projectionTransform();
     vp = p * v;
 
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
     glUseProgram(m_program->name);
+
+    glViewport(0, 0, windowWidth(), windowHeight());
 
     glBindVertexArray(MyModel::sharedVertexArray());
 
@@ -127,7 +130,14 @@ public:
       m_program->uniform("mvp_matrix") = mvp.matrix();
       m_program->uniform("mv_normalmatrix") = mv.normalMatrix();
 
-      m_program->uniform("diffuse_color") = gk::VecColor(1, 1, 0);
+      if (model->hasDiffuseTexture())
+      {
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, model->diffuseTexture());
+	glBindSampler(0, gk::defaultSampler()->name);
+
+	m_program->sampler("diffuse_texture") = 0;
+      }
 
       glDrawElementsBaseVertex(GL_TRIANGLES,
 			       model->meshGpuInfo().indexCount,
@@ -137,6 +147,7 @@ public:
     }
 
     glBindVertexArray(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     m_time->stop();
 

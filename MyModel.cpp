@@ -5,6 +5,7 @@
 GLuint MyModel::_sharedVertexArray = 0;
 
 MyModel::MyModel()
+  :_diffuseTexture(-1)
 {
 }
 

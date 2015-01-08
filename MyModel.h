@@ -20,17 +20,24 @@ class MyModel
   gk::Point _position;
   gk::Transform _modelToWorldTransform;
 
+  static GLuint _sharedVertexArray;
+
   MyMeshGpuLocation _meshGpuLocation;
 
-  static GLuint _sharedVertexArray;
+  int _diffuseTexture;
 
  public:
 
   MyModel();
 
   const std::string& name() const { return _name; }
-  const MyMeshGpuLocation& meshGpuInfo() const { return _meshGpuLocation; }
+
   const gk::Transform& modelToWorldTransform() const { return _modelToWorldTransform; }
+
+  const MyMeshGpuLocation& meshGpuInfo() const { return _meshGpuLocation; }
+
+  bool hasDiffuseTexture() const { return _diffuseTexture >= 0; }
+  GLuint diffuseTexture() const { return (GLuint)_diffuseTexture; }
 
   void print() const;
 
