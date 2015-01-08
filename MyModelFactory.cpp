@@ -9,7 +9,7 @@
 
 #include <stdio.h>
 
-#define VERTEX_BYTESIZE			(9 * sizeof(GLfloat))
+#define VERTEX_BYTESIZE			9 * sizeof(GLfloat)
 #define SHARED_VERTEX_BUFFER_BYTESIZE	16 * 1024 * 1024
 #define SHARED_INDEX_BUFFER_BYTESIZE	64 * 1024 * 1024
 
@@ -19,7 +19,7 @@ GLuint MyModelFactory::_sharedVertexBuffer = 0;
 int MyModelFactory::_totalIndexCount = 0;
 GLuint MyModelFactory::_sharedIndexBuffer = 0;
 
-std::map<std::string, MyMeshGpuLocation> MyModelFactory::_meshGpuLocations;
+std::map<std::string, MyMeshInfo> MyModelFactory::_meshInfos;
 std::map<std::string, GLuint> MyModelFactory::_textures;
 
 void MyModelFactory::bindSharedBuffers(bool bind)
@@ -59,45 +59,21 @@ MyModel* MyModelFactory::createModel(const std::string& meshFilename, const std:
 
   model = new MyModel();
   model->_name = meshFilename;
-  model->_meshGpuLocation = getMeshGpuLocation(meshFilename);
-  model->_diffuseTexture = getTexture(diffuseTextureFilename);
+
+  setMesh(model, meshFilename);
+  setTexture(model, diffuseTextureFilename);
 
   return model;
 }
 
-MyMeshGpuLocation MyModelFactory::getMeshGpuLocation(const std::string& filename)
-{
-  gk::Mesh* mesh;
-
-  MeshGpuLocationMap::iterator it;
-  MyMeshGpuLocation meshGpuLocation;
-
-  it = _meshGpuLocations.find(filename);
-  if (it != _meshGpuLocations.end())
-    return (it->second);
-
-  mesh = gk::MeshIO::readOBJ(filename);
-  if (mesh == 0)
-  {
-    fprintf(stderr, "MyModelFactory::getMeshGpuLocation(): Impossible de charger le mesh '%s'\r\n", filename.c_str());
-    exit(-1);
-  }
-
-  meshGpuLocation = getMeshGpuLocation(mesh);
-  _meshGpuLocations[filename] = meshGpuLocation;
-
-  delete mesh;
-
-  return meshGpuLocation;
-}
-MyMeshGpuLocation MyModelFactory::getMeshGpuLocation(gk::Mesh* mesh)
+void MyModelFactory::setMesh(MyModel* model, gk::Mesh* mesh)
 {
   uint i;
 
   int meshVertexCount;
   std::vector<gk::Vec3> meshVertices;
 
-  MyMeshGpuLocation meshGpuLocation;
+  MyMeshInfo meshInfo;
 
   meshVertexCount = 0;
 
@@ -110,9 +86,9 @@ MyMeshGpuLocation MyModelFactory::getMeshGpuLocation(gk::Mesh* mesh)
     meshVertices.push_back(mesh->texcoords[i]);
   }
 
-  meshGpuLocation.indexCount = mesh->indices.size();
-  meshGpuLocation.indexOffset = _totalIndexCount;
-  meshGpuLocation.vertexOffset = _totalVertexCount;
+  meshInfo.gpuIndexCount = mesh->indices.size();
+  meshInfo.gpuIndexOffset = _totalIndexCount;
+  meshInfo.gpuVertexOffset = _totalVertexCount;
 
   bindSharedBuffers(true);
 
@@ -124,43 +100,69 @@ MyMeshGpuLocation MyModelFactory::getMeshGpuLocation(gk::Mesh* mesh)
   _totalVertexCount +=  mesh->positions.size();
   _totalIndexCount += mesh->indices.size();
 
-  return meshGpuLocation;
+  if (!mesh->filename.empty())
+    _meshInfos[mesh->filename] = meshInfo;
+
+  model->_meshInfo = meshInfo;
 }
-
-GLuint MyModelFactory::getTexture(const std::string& filename)
+void MyModelFactory::setMesh(MyModel* model, const std::string& filename)
 {
-  GLuint texture;
-  TextureMap::iterator it;
+  gk::Mesh* mesh;
 
-  texture = 0;
+  MeshInfoMap::iterator it;
+  MyMeshInfo meshInfo;
 
-  it = _textures.find(filename);
-  if (it != _textures.end())
-    return it->second;
-
-  gk::Image* image = gk::ImageIO::readImage(filename);
-  if (image == 0)
+  it = _meshInfos.find(filename);
+  if (it != _meshInfos.end())
   {
-    fprintf(stderr, "MyModelFactory::getTexture(): Impossible de charger la texture '%s'\r\n", filename.c_str());
-    exit(-1);
+    model->_meshInfo = it->second;
   }
+  else
+  {
+    mesh = gk::MeshIO::readOBJ(filename);
+    if (mesh == 0)
+    {
+      fprintf(stderr, "MyModelFactory::getMeshInfo(): Impossible de charger le mesh '%s'\r\n", filename.c_str());
+      exit(-1);
+    }
 
-  texture = getTexture(image);
-  _textures[filename] = texture;
+    setMesh(model, mesh);
 
-  delete image;
-
-  return texture;
+    delete mesh;
+  }
 }
-GLuint MyModelFactory::getTexture(gk::Image* image)
-{
-  GLuint texture;
 
-  glGenTextures(1, &texture);
-  glBindTexture(GL_TEXTURE_2D, texture);
+void MyModelFactory::setTexture(MyModel* model, gk::Image* image)
+{
+  glGenTextures(1, (GLuint*)&model->_diffuseTexture);
+  glBindTexture(GL_TEXTURE_2D, (GLuint)model->_diffuseTexture);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image->width, image->height, 0, GL_RGB, GL_UNSIGNED_BYTE, image->data);
   glGenerateMipmap(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, 0);
+}
+void MyModelFactory::setTexture(MyModel* model, const std::string& filename)
+{
+  gk::Image* image;
+  TextureMap::iterator it;
 
-  return texture;
+  it = _textures.find(filename);
+  if (it != _textures.end())
+  {
+    model->_diffuseTexture = it->second;
+  }
+  else
+  {
+    image = gk::ImageIO::readImage(filename);
+    if (image == 0)
+    {
+      fprintf(stderr, "MyModelFactory::getTexture(): Impossible de charger la texture '%s'\r\n", filename.c_str());
+      exit(-1);
+    }
+
+    setTexture(model, image);
+
+    _textures[filename] = model->_diffuseTexture;
+
+    delete image;
+  }
 }

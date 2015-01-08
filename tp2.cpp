@@ -10,6 +10,7 @@
 #include "MyFpsCamera.h"
 #include "MyModel.h"
 #include "MyModelFactory.h"
+#include "MyMeshInfo.h"
 
 #include <stdlib.h>
 #include <string>
@@ -93,9 +94,12 @@ public:
 
   int draw()
   {
+    m_time->start();
+
     uint i;
 
     MyModel* model;
+    MyMeshInfo meshInfo;
 
     gk::Transform v;
     gk::Transform p;
@@ -104,8 +108,6 @@ public:
     gk::Transform m;
     gk::Transform mv;
     gk::Transform mvp;
-
-    m_time->start();
 
     v = _camera.viewTransform();
     p = _camera.projectionTransform();
@@ -122,6 +124,7 @@ public:
     for (i = 0; i < _models.size(); ++i)
     {
       model = _models[i];
+      meshInfo = model->meshInfo();
 
       m = model->modelToWorldTransform();
       mv = v * m;
@@ -140,14 +143,15 @@ public:
       }
 
       glDrawElementsBaseVertex(GL_TRIANGLES,
-			       model->meshGpuInfo().indexCount,
+			       meshInfo.gpuIndexCount,
 			       GL_UNSIGNED_INT,
-			       (GLvoid*)(sizeof(GLuint) * model->meshGpuInfo().indexOffset),
-			       model->meshGpuInfo().vertexOffset);
+			       (GLvoid*)(sizeof(GLuint) * meshInfo.gpuIndexOffset),
+			       meshInfo.gpuVertexOffset);
+
+      glBindTexture(GL_TEXTURE_2D, 0);
     }
 
     glBindVertexArray(0);
-    glBindTexture(GL_TEXTURE_2D, 0);
 
     m_time->stop();
 

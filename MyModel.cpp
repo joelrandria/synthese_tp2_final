@@ -11,8 +11,9 @@ MyModel::MyModel()
 
 void MyModel::print() const
 {
-  printf("Modèle '%s': ", _name.c_str());
-  _meshGpuLocation.print();
+  printf("Modèle '%s': Texture name = %d", _name.c_str(), _diffuseTexture);
+  printf(", Mesh info = ");
+  _meshInfo.print();
 }
 
 void MyModel::setPosition(const gk::Point& position)

@@ -1,10 +1,11 @@
 #ifndef __MYMODEL_H__
 #define __MYMODEL_H__
 
+#include "Geometry.h"
 #include "Transform.h"
 #include "GLResource.h"
 
-#include "MyMeshGpuLocation.h"
+#include "MyMeshInfo.h"
 
 #include <vector>
 #include <string>
@@ -22,7 +23,7 @@ class MyModel
 
   static GLuint _sharedVertexArray;
 
-  MyMeshGpuLocation _meshGpuLocation;
+  MyMeshInfo _meshInfo;
 
   int _diffuseTexture;
 
@@ -32,12 +33,12 @@ class MyModel
 
   const std::string& name() const { return _name; }
 
-  const gk::Transform& modelToWorldTransform() const { return _modelToWorldTransform; }
-
-  const MyMeshGpuLocation& meshGpuInfo() const { return _meshGpuLocation; }
+  const MyMeshInfo& meshInfo() const { return _meshInfo; }
 
   bool hasDiffuseTexture() const { return _diffuseTexture >= 0; }
-  GLuint diffuseTexture() const { return (GLuint)_diffuseTexture; }
+  GLuint diffuseTexture() { return (GLuint)_diffuseTexture; }
+
+  const gk::Transform& modelToWorldTransform() const { return _modelToWorldTransform; }
 
   void print() const;
 
