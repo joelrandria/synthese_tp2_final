@@ -13,6 +13,8 @@
 #define SHARED_VERTEX_BUFFER_BYTESIZE	16 * 1024 * 1024
 #define SHARED_INDEX_BUFFER_BYTESIZE	64 * 1024 * 1024
 
+#define BOX_MESH_NAME			"__box_mesh__"
+
 int MyModelFactory::_totalVertexCount = 0;
 GLuint MyModelFactory::_sharedVertexBuffer = 0;
 
@@ -53,12 +55,26 @@ void MyModelFactory::bindSharedBuffers(bool bind)
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bind ? _sharedIndexBuffer : 0);
 }
 
+MyModel* MyModelFactory::createBox(const gk::Point& pMin, const gk::Point& pMax)
+{
+  MyModel* model;
+
+  model = new MyModel();
+
+  setBoxMesh(model);
+
+  model->_modelToWorldTransform = gk::Scale(fabs(pMax.x - pMin.x), fabs(pMax.y - pMin.y), fabs(pMax.z - pMin.z));
+  model->_modelToWorldTransform = gk::Translate(gk::Vector(gk::BBox(pMin, pMax).center())) * model->_modelToWorldTransform;
+
+  return model;
+}
 MyModel* MyModelFactory::createModel(const std::string& meshFilename, const std::string& diffuseTextureFilename)
 {
   MyModel* model;
 
   model = new MyModel();
   model->_name = meshFilename;
+  model->_hasDiffuseTexture = true;
 
   setMesh(model, meshFilename);
   setTexture(model, diffuseTextureFilename);
@@ -89,6 +105,8 @@ void MyModelFactory::setMesh(MyModel* model, gk::Mesh* mesh)
   meshInfo.gpuIndexCount = mesh->indices.size();
   meshInfo.gpuIndexOffset = _totalIndexCount;
   meshInfo.gpuVertexOffset = _totalVertexCount;
+
+  meshInfo.localBoundingBox = mesh->box;
 
   bindSharedBuffers(true);
 
@@ -130,6 +148,102 @@ void MyModelFactory::setMesh(MyModel* model, const std::string& filename)
 
     delete mesh;
   }
+}
+
+void MyModelFactory::setBoxMesh(MyModel* model)
+{
+  gk::Mesh* boxMesh;
+  MeshInfoMap::iterator it;
+
+  it = _meshInfos.find(BOX_MESH_NAME);
+  if (it != _meshInfos.end())
+  {
+    model->_meshInfo = it->second;
+  }
+  else
+  {
+    boxMesh = createBoxMesh();
+
+    setMesh(model, boxMesh);
+
+    delete boxMesh;
+  }
+}
+gk::Mesh* MyModelFactory::createBoxMesh()
+{
+  gk::Mesh* boxMesh;
+
+  boxMesh = new gk::Mesh();
+
+  boxMesh->filename = BOX_MESH_NAME;
+
+  boxMesh->positions.push_back(gk::Vec3(-0.5f, -0.5f, -0.5f));
+  boxMesh->positions.push_back(gk::Vec3(-0.5f, 0.5f, -0.5f));
+  boxMesh->positions.push_back(gk::Vec3(0.5f, 0.5f, -0.5f));
+  boxMesh->positions.push_back(gk::Vec3(0.5f, -0.5f, -0.5f));
+  boxMesh->positions.push_back(gk::Vec3(-0.5f, 0.5f, 0.5f));
+  boxMesh->positions.push_back(gk::Vec3(-0.5f, -0.5f, 0.5f));
+  boxMesh->positions.push_back(gk::Vec3(0.5f, -0.5f, 0.5f));
+  boxMesh->positions.push_back(gk::Vec3(0.5f, 0.5f, 0.5f));
+
+  boxMesh->normals.push_back(gk::Vec3(0, -1, 0));
+  boxMesh->normals.push_back(gk::Vec3(0, 1, 0));
+  boxMesh->normals.push_back(gk::Vec3(0, 1, 0));
+  boxMesh->normals.push_back(gk::Vec3(0, -1, 0));
+  boxMesh->normals.push_back(gk::Vec3(0, 1, 0));
+  boxMesh->normals.push_back(gk::Vec3(0, -1, 0));
+  boxMesh->normals.push_back(gk::Vec3(0, -1, 0));
+  boxMesh->normals.push_back(gk::Vec3(0, 1, 0));
+
+  boxMesh->texcoords.push_back(gk::Vec3(0, 1, 0));
+  boxMesh->texcoords.push_back(gk::Vec3(1, 0, 0));
+  boxMesh->texcoords.push_back(gk::Vec3(0, 0, 0));
+  boxMesh->texcoords.push_back(gk::Vec3(0, 1, 0));
+  boxMesh->texcoords.push_back(gk::Vec3(0, 0, 0));
+  boxMesh->texcoords.push_back(gk::Vec3(0, 1, 0));
+  boxMesh->texcoords.push_back(gk::Vec3(1, 1, 0));
+  boxMesh->texcoords.push_back(gk::Vec3(1, 0, 0));
+
+  boxMesh->indices.push_back(3);
+  boxMesh->indices.push_back(0);
+  boxMesh->indices.push_back(1);
+  boxMesh->indices.push_back(1);
+  boxMesh->indices.push_back(2);
+  boxMesh->indices.push_back(3);
+  boxMesh->indices.push_back(0);
+  boxMesh->indices.push_back(5);
+  boxMesh->indices.push_back(4);
+  boxMesh->indices.push_back(4);
+  boxMesh->indices.push_back(1);
+  boxMesh->indices.push_back(0);
+  boxMesh->indices.push_back(5);
+  boxMesh->indices.push_back(6);
+  boxMesh->indices.push_back(7);
+  boxMesh->indices.push_back(7);
+  boxMesh->indices.push_back(4);
+  boxMesh->indices.push_back(5);
+  boxMesh->indices.push_back(6);
+  boxMesh->indices.push_back(3);
+  boxMesh->indices.push_back(2);
+  boxMesh->indices.push_back(2);
+  boxMesh->indices.push_back(7);
+  boxMesh->indices.push_back(6);
+  boxMesh->indices.push_back(4);
+  boxMesh->indices.push_back(7);
+  boxMesh->indices.push_back(2);
+  boxMesh->indices.push_back(2);
+  boxMesh->indices.push_back(1);
+  boxMesh->indices.push_back(4);
+  boxMesh->indices.push_back(5);
+  boxMesh->indices.push_back(0);
+  boxMesh->indices.push_back(3);
+  boxMesh->indices.push_back(3);
+  boxMesh->indices.push_back(6);
+  boxMesh->indices.push_back(5);
+
+  boxMesh->box = gk::BBox(gk::Point(-0.5f, -0.5f, -0.5f), gk::Point(0.5f, 0.5f, 0.5f));
+
+  return boxMesh;
 }
 
 void MyModelFactory::setTexture(MyModel* model, gk::Image* image)

@@ -32,7 +32,7 @@ public:
 
   TP()
     :gk::App(),
-     _camera(gk::Point(0, 0, 50), gk::Vector(0, 1, 0), gk::Vector(0, 0, -1))
+     _camera(gk::Point(253, 25, 64), gk::Vector(0, 1, 0), gk::Vector(0, 0, -1))
   {
     gk::AppSettings settings;
     settings.setGLVersion(3, 3);
@@ -71,9 +71,10 @@ public:
 
     MyModel* model;
 
-    const int modelSpacing = 25;
-    const int modelColumnCount = 7;
+    const int modelSpacing = 50;
+    const int modelColumnCount = 10;
 
+    // Les bigguys
     for (i = 0; i < 100; ++i)
     {
       sprintf(filename, "Bigguy/bigguy_%.2d.obj", (i % 59));
@@ -84,7 +85,13 @@ public:
       _models.push_back(model);
     }
 
-    printf("%d modèles chargés\r\n", (int)_models.size());
+    // Le sol
+    model = MyModelFactory::createBox(gk::Point(-50, -14, 50), gk::Point(510, -12, -510));
+    model->hasDiffuseColor() = true;
+    model->diffuseColor() = gk::Vec3(0.6f, 0.6f, 0.6f);
+    _models.push_back(model);
+
+    printf("%d modèle(s) chargé(s)\r\n", (int)_models.size());
   }
 
   int quit()
@@ -133,6 +140,9 @@ public:
       m_program->uniform("mvp_matrix") = mvp.matrix();
       m_program->uniform("mv_normalmatrix") = mv.normalMatrix();
 
+      m_program->uniform("has_diffuse_color") = model->hasDiffuseColor();
+      m_program->uniform("has_diffuse_texture") = model->hasDiffuseTexture();
+
       if (model->hasDiffuseTexture())
       {
 	glActiveTexture(GL_TEXTURE0);
@@ -140,6 +150,10 @@ public:
 	glBindSampler(0, gk::defaultSampler()->name);
 
 	m_program->sampler("diffuse_texture") = 0;
+      }
+      else if (model->hasDiffuseColor())
+      {
+	m_program->uniform("diffuse_color") = model->diffuseColor();
       }
 
       glDrawElementsBaseVertex(GL_TRIANGLES,
@@ -179,6 +193,11 @@ public:
     {
       key('c') = 0;
       gk::writeFramebuffer("screenshot.png");
+    }
+    if(key('p'))
+    {
+      key('p') = 0;
+      _camera.print();
     }
 
     if (key(SDLK_UP) || key(SDLK_z))

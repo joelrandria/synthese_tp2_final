@@ -1,6 +1,7 @@
 #ifndef __MYMODELFACTORY_H__
 #define __MYMODELFACTORY_H__
 
+#include "Geometry.h"
 #include "GLResource.h"
 
 #include "MyMeshInfo.h"
@@ -35,6 +36,7 @@ class MyModelFactory
 
  public:
 
+  static MyModel* createBox(const gk::Point& pMin, const gk::Point& pMax);
   static MyModel* createModel(const std::string& meshFilename, const std::string& diffuseTextureFilename);
 
  private:
@@ -43,6 +45,9 @@ class MyModelFactory
 
   static void setMesh(MyModel* model, gk::Mesh* mesh);
   static void setMesh(MyModel* model, const std::string& filename);
+  static void setBoxMesh(MyModel* model);
+
+  static gk::Mesh* createBoxMesh();
 
   static void setTexture(MyModel* model, gk::Image* image);
   static void setTexture(MyModel* model, const std::string& filename);

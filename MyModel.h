@@ -25,7 +25,11 @@ class MyModel
 
   MyMeshInfo _meshInfo;
 
-  int _diffuseTexture;
+  bool _hasDiffuseColor;
+  gk::Vec3 _diffuseColor;
+
+  bool _hasDiffuseTexture;
+  GLuint _diffuseTexture;
 
  public:
 
@@ -35,10 +39,15 @@ class MyModel
 
   const MyMeshInfo& meshInfo() const { return _meshInfo; }
 
-  bool hasDiffuseTexture() const { return _diffuseTexture >= 0; }
-  GLuint diffuseTexture() { return (GLuint)_diffuseTexture; }
+  bool& hasDiffuseColor() { return _hasDiffuseColor; }
+  gk::Vec3& diffuseColor() { return _diffuseColor; }
+
+  bool& hasDiffuseTexture() { return _hasDiffuseTexture; }
+  GLuint diffuseTexture() const { return _diffuseTexture; }
 
   const gk::Transform& modelToWorldTransform() const { return _modelToWorldTransform; }
+
+  gk::BBox boundingBox() const { return _modelToWorldTransform(_meshInfo.localBoundingBox); }
 
   void print() const;
 

@@ -5,15 +5,18 @@
 GLuint MyModel::_sharedVertexArray = 0;
 
 MyModel::MyModel()
-  :_diffuseTexture(-1)
+  :_hasDiffuseColor(false),
+   _hasDiffuseTexture(false),
+  _diffuseTexture(-1)
 {
 }
 
 void MyModel::print() const
 {
-  printf("Modèle '%s': Texture name = %d", _name.c_str(), _diffuseTexture);
-  printf(", Mesh info = ");
-  _meshInfo.print();
+  printf("[Modèle '%s']\r\n", _name.c_str());
+  printf(" Texture name = %d\r\n", _diffuseTexture);
+  printf(" Mesh info: "); _meshInfo.print();
+  printf(" Bounding box = "); boundingBox().print();
 }
 
 void MyModel::setPosition(const gk::Point& position)

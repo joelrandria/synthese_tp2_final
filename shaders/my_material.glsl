@@ -30,15 +30,22 @@ in vec3 fragment_position;
 in vec3 fragment_normal;
 in vec2 fragment_texcoords;
 
+uniform bool has_diffuse_color;
+uniform vec3 diffuse_color;
+
+uniform bool has_diffuse_texture;
 uniform sampler2D diffuse_texture;
 
 out vec4 fragment_color;
 
 void main()
 {
-  vec3 n = normalize(fragment_normal);
+  vec3 diffuse = vec3(1, 1, 1);
 
-  fragment_color.rgb = texture(diffuse_texture, fragment_texcoords).rgb;
+  if (has_diffuse_texture)
+    fragment_color.rgb = texture(diffuse_texture, fragment_texcoords).rgb;
+  else if (has_diffuse_color)
+    fragment_color.rgb = diffuse_color;
 
   //fragment_color.rgb = vec3(fragment_texcoords, 0);
 }

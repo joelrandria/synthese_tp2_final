@@ -34,6 +34,8 @@ class MyMeshInfo
     gpuIndexOffset = instance.gpuIndexOffset;
     gpuVertexOffset = instance.gpuVertexOffset;
 
+    localBoundingBox = instance.localBoundingBox;
+
     return *this;
   }
 
@@ -43,8 +45,7 @@ class MyMeshInfo
 	   gpuIndexCount,
 	   gpuIndexOffset,
 	   gpuVertexOffset);
-    printf(", Local bounding box = ");
-    localBoundingBox.print();
+    printf(", Local bounding box = "); localBoundingBox.print();
   }
 };
 
