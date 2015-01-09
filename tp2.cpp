@@ -39,7 +39,7 @@ public:
     settings.setGLCoreProfile();
     settings.setGLDebugContext();
 
-    if(createWindow(768, 768, settings) < 0)
+    if(createWindow(1400, 1000, settings) < 0)
       closeWindow();
 
     m_widgets.init();
@@ -58,9 +58,16 @@ public:
 
     loadModels();
 
+    updateCameraProjection();
+
     m_time = gk::createTimer();
 
     return 0;
+  }
+
+  void updateCameraProjection()
+  {
+    _camera.projectionTransform() = gk::Perspective(60, (float)windowWidth() / (float)windowHeight(), 0.01f, 1000);
   }
 
   void loadModels()
@@ -221,6 +228,8 @@ public:
   void processWindowResize(SDL_WindowEvent& event)
   {
     m_widgets.reshape(event.data1, event.data2);
+
+    updateCameraProjection();
   }
   void processMouseButtonEvent(SDL_MouseButtonEvent& event)
   {

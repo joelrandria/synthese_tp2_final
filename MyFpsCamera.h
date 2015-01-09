@@ -20,10 +20,11 @@ class MyFpsCamera
 
  public:
 
+  MyFpsCamera();
   MyFpsCamera(const gk::Point& position, const gk::Vector& up, const gk::Vector& front);
 
   gk::Transform viewTransform() const { return _worldToViewTransform; }
-  gk::Transform projectionTransform() const { return _projectionTransform; }
+  gk::Transform& projectionTransform() { return _projectionTransform; }
 
   void pitch(float localDegreeAngle);
   void yaw(float globalDegreeAngle);

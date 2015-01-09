@@ -1,10 +1,15 @@
 #include "MyFpsCamera.h"
 
+MyFpsCamera::MyFpsCamera()
+  :_up(gk::Vector(0, 1, 0)),
+   _front(gk::Vector(0, 0, -1)),
+   _right(gk::Vector(1, 0, 0))
+{
+}
 MyFpsCamera::MyFpsCamera(const gk::Point& position, const gk::Vector& up, const gk::Vector& front)
   :_position(position),
    _up(gk::Normalize(up)),
-   _front(gk::Normalize(front)),
-   _projectionTransform(gk::Perspective(60, 1, 0.01f, 1000))
+   _front(gk::Normalize(front))
 {
   updateRight();
   updateTransforms();
