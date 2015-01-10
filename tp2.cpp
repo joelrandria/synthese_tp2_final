@@ -26,13 +26,16 @@ class TP : public gk::App
   nv::SdlContext m_widgets;
 
   MyFpsCamera _camera;
+  MyFpsCamera _topCamera;
+
   std::vector<MyModel*> _models;
 
 public:
 
   TP()
     :gk::App(),
-     _camera(gk::Point(253, 25, 64), gk::Vector(0, 1, 0), gk::Vector(0, 0, -1))
+     _camera(gk::Point(253, 25, 64), gk::Vector(0, 1, 0), gk::Vector(0, 0, -1)),
+     _topCamera(gk::Point(233, 477, -230), gk::Vector(0, 0, -1), gk::Vector(0, -1, 0))
   {
     gk::AppSettings settings;
     settings.setGLVersion(3, 3);
@@ -58,16 +61,19 @@ public:
 
     loadModels();
 
-    updateCameraProjection();
+    updateCameraProjections();
 
     m_time = gk::createTimer();
 
     return 0;
   }
 
-  void updateCameraProjection()
+  void updateCameraProjections()
   {
-    _camera.projectionTransform() = gk::Perspective(60, (float)windowWidth() / (float)windowHeight(), 0.01f, 1000);
+    gk::Transform persp = gk::Perspective(60, (float)windowWidth() / (float)windowHeight(), 0.01f, 1000);
+
+    _camera.projectionTransform() = persp;
+    _topCamera.projectionTransform() = persp;
   }
 
   void loadModels()
@@ -125,6 +131,7 @@ public:
 
     v = _camera.viewTransform();
     p = _camera.projectionTransform();
+
     vp = p * v;
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -138,6 +145,9 @@ public:
     for (i = 0; i < _models.size(); ++i)
     {
       model = _models[i];
+      if (!_camera.isVisible(*model))
+	continue;
+
       meshInfo = model->meshInfo();
 
       m = model->modelToWorldTransform();
@@ -216,9 +226,9 @@ public:
     if (key(SDLK_RIGHT) || key(SDLK_d))
       _camera.localTranslate(gk::Vector(1, 0, 0));
     if (key(SDLK_PAGEUP))
-      _camera.translate(gk::Vector(0, 1, 0));
+      _camera.localTranslate(gk::Vector(0, 1, 0));
     if (key(SDLK_PAGEDOWN))
-      _camera.translate(gk::Vector(0, -1, 0));
+      _camera.localTranslate(gk::Vector(0, -1, 0));
 
     present();
 
@@ -229,7 +239,7 @@ public:
   {
     m_widgets.reshape(event.data1, event.data2);
 
-    updateCameraProjection();
+    updateCameraProjections();
   }
   void processMouseButtonEvent(SDL_MouseButtonEvent& event)
   {
