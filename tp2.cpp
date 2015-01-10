@@ -25,7 +25,7 @@ class TP : public gk::App
   gk::GLProgram* m_program;
   nv::SdlContext m_widgets;
 
-  MyFpsCamera _camera;
+  MyFpsCamera _userCamera;
   MyFpsCamera _topCamera;
 
   std::vector<MyModel*> _models;
@@ -34,7 +34,8 @@ public:
 
   TP()
     :gk::App(),
-     _camera(gk::Point(253, 25, 64), gk::Vector(0, 1, 0), gk::Vector(0, 0, -1)),
+
+     _userCamera(gk::Point(253, 25, 64), gk::Vector(0, 1, 0), gk::Vector(0, 0, -1)),
      _topCamera(gk::Point(233, 477, -230), gk::Vector(0, 0, -1), gk::Vector(0, -1, 0))
   {
     gk::AppSettings settings;
@@ -72,7 +73,7 @@ public:
   {
     gk::Transform persp = gk::Perspective(60, (float)windowWidth() / (float)windowHeight(), 0.01f, 1000);
 
-    _camera.projectionTransform() = persp;
+    _userCamera.projectionTransform() = persp;
     _topCamera.projectionTransform() = persp;
   }
 
@@ -114,8 +115,64 @@ public:
 
   int draw()
   {
+    // Rendu scène
     m_time->start();
 
+    renderUserCameraPass();
+
+    m_time->stop();
+
+    // Rendu UI
+    {
+      m_widgets.begin();
+      m_widgets.beginGroup(nv::GroupFlags_GrowDownFromLeft);
+
+      m_widgets.doLabel(nv::Rect(), m_time->summary("draw").c_str());
+
+      m_widgets.endGroup();
+      m_widgets.end();
+    }
+
+    // Gestion évènements clavier
+    if (key(SDLK_ESCAPE))
+      closeWindow();
+
+    if (key('r'))
+    {
+      key('r') = 0;
+      gk::reloadPrograms();
+    }
+    if(key('c'))
+    {
+      key('c') = 0;
+      gk::writeFramebuffer("screenshot.png");
+    }
+    if(key('p'))
+    {
+      key('p') = 0;
+      _userCamera.print();
+    }
+
+    if (key(SDLK_UP) || key(SDLK_z))
+      _userCamera.localTranslate(gk::Vector(0, 0, -1));
+    if (key(SDLK_DOWN) || key(SDLK_s))
+      _userCamera.localTranslate(gk::Vector(0, 0, 1));
+    if (key(SDLK_LEFT) || key(SDLK_q))
+      _userCamera.localTranslate(gk::Vector(-1, 0, 0));
+    if (key(SDLK_RIGHT) || key(SDLK_d))
+      _userCamera.localTranslate(gk::Vector(1, 0, 0));
+    if (key(SDLK_PAGEUP))
+      _userCamera.localTranslate(gk::Vector(0, 1, 0));
+    if (key(SDLK_PAGEDOWN))
+      _userCamera.localTranslate(gk::Vector(0, -1, 0));
+
+    present();
+
+    return 1;
+  }
+
+  void renderUserCameraPass()
+  {
     uint i;
 
     MyModel* model;
@@ -129,8 +186,8 @@ public:
     gk::Transform mv;
     gk::Transform mvp;
 
-    v = _camera.viewTransform();
-    p = _camera.projectionTransform();
+    v = _userCamera.viewTransform();
+    p = _userCamera.projectionTransform();
 
     vp = p * v;
 
@@ -145,7 +202,7 @@ public:
     for (i = 0; i < _models.size(); ++i)
     {
       model = _models[i];
-      if (!_camera.isVisible(*model))
+      if (!_userCamera.isVisible(*model))
 	continue;
 
       meshInfo = model->meshInfo();
@@ -183,56 +240,6 @@ public:
     }
 
     glBindVertexArray(0);
-
-    m_time->stop();
-
-    // UI
-    {
-      m_widgets.begin();
-      m_widgets.beginGroup(nv::GroupFlags_GrowDownFromLeft);
-
-      m_widgets.doLabel(nv::Rect(), m_time->summary("draw").c_str());
-
-      m_widgets.endGroup();
-      m_widgets.end();
-    }
-
-    // Clavier
-    if (key(SDLK_ESCAPE))
-      closeWindow();
-
-    if (key('r'))
-    {
-      key('r') = 0;
-      gk::reloadPrograms();
-    }
-    if(key('c'))
-    {
-      key('c') = 0;
-      gk::writeFramebuffer("screenshot.png");
-    }
-    if(key('p'))
-    {
-      key('p') = 0;
-      _camera.print();
-    }
-
-    if (key(SDLK_UP) || key(SDLK_z))
-      _camera.localTranslate(gk::Vector(0, 0, -1));
-    if (key(SDLK_DOWN) || key(SDLK_s))
-      _camera.localTranslate(gk::Vector(0, 0, 1));
-    if (key(SDLK_LEFT) || key(SDLK_q))
-      _camera.localTranslate(gk::Vector(-1, 0, 0));
-    if (key(SDLK_RIGHT) || key(SDLK_d))
-      _camera.localTranslate(gk::Vector(1, 0, 0));
-    if (key(SDLK_PAGEUP))
-      _camera.localTranslate(gk::Vector(0, 1, 0));
-    if (key(SDLK_PAGEDOWN))
-      _camera.localTranslate(gk::Vector(0, -1, 0));
-
-    present();
-
-    return 1;
   }
 
   void processWindowResize(SDL_WindowEvent& event)
@@ -249,8 +256,8 @@ public:
   {
     if (event.state & SDL_BUTTON(SDL_BUTTON_LEFT))
     {
-      _camera.yaw(-event.xrel);
-      _camera.pitch(-event.yrel);
+      _userCamera.yaw(-event.xrel);
+      _userCamera.pitch(-event.yrel);
     }
 
     m_widgets.processMouseMotionEvent(event);
