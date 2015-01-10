@@ -26,17 +26,18 @@ class TP : public gk::App
   nv::SdlContext m_widgets;
 
   MyFpsCamera _userCamera;
+
   MyFpsCamera _topCamera;
+  GLuint _topCameraFramebuffer;
+  static const int _topCameraRenderingWidth = 256;
+  static const int _topCameraRenderingHeight = 256;
 
   std::vector<MyModel*> _models;
 
 public:
 
   TP()
-    :gk::App(),
-
-     _userCamera(gk::Point(253, 25, 64), gk::Vector(0, 1, 0), gk::Vector(0, 0, -1)),
-     _topCamera(gk::Point(233, 477, -230), gk::Vector(0, 0, -1), gk::Vector(0, -1, 0))
+    :gk::App()
   {
     gk::AppSettings settings;
     settings.setGLVersion(3, 3);
@@ -62,19 +63,65 @@ public:
 
     loadModels();
 
-    updateCameraProjections();
+    initializeCameras();
 
     m_time = gk::createTimer();
 
     return 0;
   }
 
-  void updateCameraProjections()
+  void initializeCameras()
   {
-    gk::Transform persp = gk::Perspective(60, (float)windowWidth() / (float)windowHeight(), 0.01f, 1000);
+    GLenum topCameraDrawBuffers[2] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT };
+    GLuint topCameraFramebufferTextures[2];
 
-    _userCamera.projectionTransform() = persp;
-    _topCamera.projectionTransform() = persp;
+    _userCamera = MyFpsCamera(gk::Point(253, 25, 64), gk::Vector(0, 1, 0), gk::Vector(0, 0, -1));
+    updateUserCameraProjection();
+
+    _topCamera = MyFpsCamera(gk::Point(233, 477, -230),
+			     gk::Vector(0, 0, -1),
+			     gk::Vector(0, -1, 0),
+			     gk::Orthographic(-300, 300, -300, 300, 0.01f, 1000));
+
+    glGenTextures(2, topCameraFramebufferTextures);
+
+    glBindTexture(GL_TEXTURE_2D, topCameraFramebufferTextures[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, _topCameraRenderingWidth, _topCameraRenderingHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glBindTexture(GL_TEXTURE_2D, topCameraFramebufferTextures[1]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, _topCameraRenderingWidth, _topCameraRenderingHeight, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glGenFramebuffers(1, &_topCameraFramebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _topCameraFramebuffer);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, topCameraFramebufferTextures[0], 0);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, topCameraFramebufferTextures[1], 0);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    glDrawBuffers(2, topCameraDrawBuffers);
+    checkFramebufferStatus("Top camera", GL_DRAW_FRAMEBUFFER);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  }
+  void updateUserCameraProjection()
+  {
+    _userCamera.projectionTransform() = gk::Perspective(60, (float)windowWidth() / (float)windowHeight(), 0.01f, 1000);
+  }
+
+  void checkFramebufferStatus(const std::string& name, GLenum target)
+  {
+    switch (glCheckFramebufferStatus(target))
+    {
+    case GL_FRAMEBUFFER_UNDEFINED: fprintf(stderr, "Framebuffer '%s' incomplet: GL_FRAMEBUFFER_UNDEFINED\r\n", name.c_str()); exit(-1);
+    case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT: fprintf(stderr, "Framebuffer '%s' incomplet: GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT\r\n", name.c_str()); exit(-1);
+    case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT: fprintf(stderr, "Framebuffer '%s' incomplet: GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT\r\n", name.c_str()); exit(-1);
+    case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER: fprintf(stderr, "Framebuffer '%s' incomplet: GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER\r\n", name.c_str()); exit(-1);
+    case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER: fprintf(stderr, "Framebuffer '%s' incomplet: GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER\r\n", name.c_str()); exit(-1);
+    case GL_FRAMEBUFFER_UNSUPPORTED: fprintf(stderr, "Framebuffer '%s' incomplet: GL_FRAMEBUFFER_UNSUPPORTED\r\n", name.c_str()); exit(-1);
+    case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE: fprintf(stderr, "Framebuffer '%s' incomplet: GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE\r\n", name.c_str()); exit(-1);
+    case GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS: fprintf(stderr, "Framebuffer '%s' incomplet: GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS\r\n", name.c_str()); exit(-1);
+
+    default: printf("Framebuffer '%s' OK\r\n", name.c_str());
+    }
   }
 
   void loadModels()
@@ -115,10 +162,43 @@ public:
 
   int draw()
   {
+    std::vector<MyModel*> visibleModels;
+
     // Rendu scène
     m_time->start();
 
-    renderUserCameraPass();
+    // -- Culling
+    getUserVisibleModels(_models, visibleModels);
+
+    glUseProgram(m_program->name);
+    glViewport(0, 0, windowWidth(), windowHeight());
+    glBindVertexArray(MyModel::sharedVertexArray());
+
+    // -- 1ère passe: Vue utilisateur
+    cameraRenderingPass(_userCamera, visibleModels);
+
+    // -- 2e passe: Vue stationnaire orthographique de dessus
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _topCameraFramebuffer);
+    glViewport(0, 0, _topCameraRenderingWidth, _topCameraRenderingHeight);
+
+    cameraRenderingPass(_topCamera, visibleModels);
+
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+    // -- Composition de l'image finale
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, _topCameraFramebuffer);
+
+    glBlitFramebuffer(0, 0, _topCameraRenderingWidth, _topCameraRenderingHeight,
+		      0, 0, _topCameraRenderingWidth, _topCameraRenderingHeight,
+		      GL_COLOR_BUFFER_BIT,
+		      GL_LINEAR);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
+    // -- Nettoyage des états OpenGL
+    glBindVertexArray(0);
+
+    glViewport(0, 0, windowWidth(), windowHeight());
 
     m_time->stop();
 
@@ -133,7 +213,7 @@ public:
       m_widgets.end();
     }
 
-    // Gestion évènements clavier
+    // Gestion clavier
     if (key(SDLK_ESCAPE))
       closeWindow();
 
@@ -171,7 +251,18 @@ public:
     return 1;
   }
 
-  void renderUserCameraPass()
+  void getUserVisibleModels(const std::vector<MyModel*>& models, std::vector<MyModel*>& visible)
+  {
+    uint i;
+
+    visible.clear();
+
+    for (i = 0; i < models.size(); ++i)
+      if (_userCamera.isVisible(*models[i]))
+	visible.push_back(models[i]);
+  }
+
+  void cameraRenderingPass(MyFpsCamera& camera, const std::vector<MyModel*>& models)
   {
     uint i;
 
@@ -186,23 +277,17 @@ public:
     gk::Transform mv;
     gk::Transform mvp;
 
-    v = _userCamera.viewTransform();
-    p = _userCamera.projectionTransform();
+    v = camera.viewTransform();
+    p = camera.projectionTransform();
 
     vp = p * v;
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glUseProgram(m_program->name);
-
-    glViewport(0, 0, windowWidth(), windowHeight());
-
-    glBindVertexArray(MyModel::sharedVertexArray());
-
-    for (i = 0; i < _models.size(); ++i)
+    for (i = 0; i < models.size(); ++i)
     {
-      model = _models[i];
-      if (!_userCamera.isVisible(*model))
+      model = models[i];
+      if (!camera.isVisible(*model))
 	continue;
 
       meshInfo = model->meshInfo();
@@ -238,15 +323,13 @@ public:
 
       glBindTexture(GL_TEXTURE_2D, 0);
     }
-
-    glBindVertexArray(0);
   }
 
   void processWindowResize(SDL_WindowEvent& event)
   {
     m_widgets.reshape(event.data1, event.data2);
 
-    updateCameraProjections();
+    updateUserCameraProjection();
   }
   void processMouseButtonEvent(SDL_MouseButtonEvent& event)
   {

@@ -22,8 +22,10 @@ class MyFpsCamera
 
  public:
 
-  MyFpsCamera();
-  MyFpsCamera(const gk::Point& position, const gk::Vector& up, const gk::Vector& front);
+  MyFpsCamera(const gk::Point& position = gk::Point(),
+	      const gk::Vector& up = gk::Vector(0, 1, 0),
+	      const gk::Vector& front = gk::Vector(0, 0, -1),
+	      const gk::Transform& projectionTransform = gk::Transform());
 
   gk::Transform viewTransform() const { return _worldToViewTransform; }
   gk::Transform& projectionTransform() { return _projectionTransform; }

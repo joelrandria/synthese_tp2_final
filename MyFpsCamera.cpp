@@ -13,16 +13,14 @@ const MyPlane _unitCubePlanes[6] = {
   MyPlane(gk::Point(0, 1, 0), gk::Normal(0, -1, 0))
 };
 
-MyFpsCamera::MyFpsCamera()
-  :_up(gk::Vector(0, 1, 0)),
-   _front(gk::Vector(0, 0, -1)),
-   _right(gk::Vector(1, 0, 0))
-{
-}
-MyFpsCamera::MyFpsCamera(const gk::Point& position, const gk::Vector& up, const gk::Vector& front)
+MyFpsCamera::MyFpsCamera(const gk::Point& position,
+			 const gk::Vector& up,
+			 const gk::Vector& front,
+			 const gk::Transform& projectionTransform)
   :_position(position),
    _up(gk::Normalize(up)),
-   _front(gk::Normalize(front))
+   _front(gk::Normalize(front)),
+   _projectionTransform(projectionTransform)
 {
   updateRight();
   updateTransforms();
