@@ -99,28 +99,33 @@ void MyFpsCamera::updateTransforms()
 bool MyFpsCamera::isVisible(const MyModel& model)
 {
   uint i;
-  std::vector<gk::Point> ndcBBoxVertices;
 
-  projectBoundingBox(_worldToViewTransform(model.boundingBox()), ndcBBoxVertices);
+  gk::BBox modelBBox;
+  std::vector<MyPlane> modelBBoxPlanes;
+
+  std::vector<gk::Point> frustumBounds;
+
+  frustumBounds.push_back(_projectionTransform.inverse(gk::Point(-1, -1, -1)));
+  frustumBounds.push_back(_projectionTransform.inverse(gk::Point(1, -1, -1)));
+  frustumBounds.push_back(_projectionTransform.inverse(gk::Point(1, 1, -1)));
+  frustumBounds.push_back(_projectionTransform.inverse(gk::Point(-1, 1, -1)));
+  frustumBounds.push_back(_projectionTransform.inverse(gk::Point(-1, -1, 1)));
+  frustumBounds.push_back(_projectionTransform.inverse(gk::Point(1, -1, 1)));
+  frustumBounds.push_back(_projectionTransform.inverse(gk::Point(1, 1, 1)));
+  frustumBounds.push_back(_projectionTransform.inverse(gk::Point(-1, 1, 1)));
+
+  modelBBox = _worldToViewTransform(model.boundingBox());
+
+  modelBBoxPlanes.push_back(MyPlane(gk::Point(modelBBox.pMin.x, modelBBox.pMin.y, modelBBox.pMin.z), gk::Normal(0, 0, 1)));
+  modelBBoxPlanes.push_back(MyPlane(gk::Point(modelBBox.pMax.x, modelBBox.pMax.y, modelBBox.pMax.z), gk::Normal(-1, 0, 0)));
+  modelBBoxPlanes.push_back(MyPlane(gk::Point(modelBBox.pMax.x, modelBBox.pMax.y, modelBBox.pMax.z), gk::Normal(0, 0, -1)));
+  modelBBoxPlanes.push_back(MyPlane(gk::Point(modelBBox.pMin.x, modelBBox.pMin.y, modelBBox.pMin.z), gk::Normal(1, 0, 0)));
+  modelBBoxPlanes.push_back(MyPlane(gk::Point(modelBBox.pMin.x, modelBBox.pMin.y, modelBBox.pMin.z), gk::Normal(0, 1, 0)));
+  modelBBoxPlanes.push_back(MyPlane(gk::Point(modelBBox.pMax.x, modelBBox.pMax.y, modelBBox.pMax.z), gk::Normal(0, -1, 0)));
 
   for (i = 0; i < 6; ++i)
-    if (_unitCubePlanes[i].locate(ndcBBoxVertices) == PLANE_NEGATIVE_HALFSPACE)
+    if (modelBBoxPlanes[i].locate(frustumBounds) == PLANE_NEGATIVE_HALFSPACE)
       return false;
 
   return true;
-}
-
-void MyFpsCamera::projectBoundingBox(const gk::BBox& bbox, std::vector<gk::Point>& ndcBBoxVertices) const
-{
-  ndcBBoxVertices.clear();
-
-  ndcBBoxVertices.push_back(_projectionTransform(gk::Point(bbox.pMin.x, bbox.pMin.y, bbox.pMin.z)));
-  ndcBBoxVertices.push_back(_projectionTransform(gk::Point(bbox.pMax.x, bbox.pMin.y, bbox.pMin.z)));
-  ndcBBoxVertices.push_back(_projectionTransform(gk::Point(bbox.pMax.x, bbox.pMax.y, bbox.pMin.z)));
-  ndcBBoxVertices.push_back(_projectionTransform(gk::Point(bbox.pMin.x, bbox.pMax.y, bbox.pMin.z)));
-
-  ndcBBoxVertices.push_back(_projectionTransform(gk::Point(bbox.pMin.x, bbox.pMin.y, bbox.pMax.z)));
-  ndcBBoxVertices.push_back(_projectionTransform(gk::Point(bbox.pMax.x, bbox.pMin.y, bbox.pMax.z)));
-  ndcBBoxVertices.push_back(_projectionTransform(gk::Point(bbox.pMax.x, bbox.pMax.y, bbox.pMax.z)));
-  ndcBBoxVertices.push_back(_projectionTransform(gk::Point(bbox.pMin.x, bbox.pMax.y, bbox.pMax.z)));
 }

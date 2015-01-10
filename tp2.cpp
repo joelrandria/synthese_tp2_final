@@ -72,8 +72,8 @@ public:
 
   void initializeCameras()
   {
-    GLenum topCameraDrawBuffers[2] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT };
     GLuint topCameraFramebufferTextures[2];
+    GLenum topCameraDrawBuffers[2] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT };
 
     _userCamera = MyFpsCamera(gk::Point(253, 25, 64), gk::Vector(0, 1, 0), gk::Vector(0, 0, -1));
     updateUserCameraProjection();
