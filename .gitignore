@@ -84,10 +84,14 @@ tp1shader.make
 tp1sphere.glsl
 tp1sphere_reyes.cpp
 tp1sphere_reyes.make
+tp2
+tutorial1
 tutorial1.cpp
 tutorial1.make
+tutorial2
 tutorial2.cpp
 tutorial2.make
+tutorial3
 tutorial3.cpp
 tutorial3.make
 verdana.ttf

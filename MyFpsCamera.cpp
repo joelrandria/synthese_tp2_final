@@ -20,7 +20,10 @@ MyFpsCamera::MyFpsCamera(const gk::Point& position,
   :_position(position),
    _up(gk::Normalize(up)),
    _front(gk::Normalize(front)),
-   _projectionTransform(projectionTransform)
+   _projectionTransform(projectionTransform),
+   _framebuffer(0),
+   _renderingWidth(0),
+   _renderingHeight(0)
 {
   updateRight();
   updateTransforms();

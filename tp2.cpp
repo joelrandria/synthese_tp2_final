@@ -4,6 +4,7 @@
 #include "ProgramManager.h"
 
 #include "GL/GLQuery.h"
+#include "GL/GLBuffer.h"
 #include "GL/GLSampler.h"
 #include "GL/GLTexture.h"
 
@@ -18,28 +19,27 @@
 #include <iostream>
 #include <sstream>
 
+#define POINT_LIGHTS_MAX_COUNT	20
+
 using namespace std;
 
 class TP : public gk::App
 {
-  // gKit stuff
+  // gKit
   gk::GLCounter* m_time;
   gk::GLProgram* m_program;
   nv::SdlContext m_widgets;
 
   // Caméras
-  MyFpsCamera _userCamera;
-
   MyFpsCamera _topCamera;
-  GLuint _topCameraFramebuffer;
-  static const int _topCameraRenderingWidth = 256;
-  static const int _topCameraRenderingHeight = 256;
+  MyFpsCamera _userCamera;
 
   // Modèles
   std::vector<MyModel*> _models;
 
   // Lumières
-  std::vector<MyPointLight*> _lights;
+  GLuint _lightBuffer;
+  std::vector<MyPointLight> _lights;
 
 public:
 
@@ -63,9 +63,6 @@ public:
 
     for (i = 0; i < _models.size(); ++i)
       delete _models[i];
-
-    for (i = 0; i < _lights.size(); ++i)
-      delete _lights[i];
   }
 
   int init()
@@ -87,10 +84,29 @@ public:
 
   void initializeLights()
   {
-    _lights.push_back(new MyPointLight(gk::Vec4(250, 20, 0),
-				       gk::Vec4(1, 1, 1),
-				       100,
-				       0.6f, 0, 0.0001f));
+    glGenBuffers(1, &_lightBuffer);
+    glBindBuffer(GL_UNIFORM_BUFFER, _lightBuffer);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(MyPointLight) * POINT_LIGHTS_MAX_COUNT, 0, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, _lightBuffer);
+    glUniformBlockBinding(m_program->name, m_program->uniformBuffer("point_light_buffer").index, 0);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+    _lights.push_back(MyPointLight(gk::Point(250, 20, 0), gk::Vec3(1, 1, 1), 0.6f, 0, 0.0001f, 100));
+    _lights.push_back(MyPointLight(gk::Point(250, 20, -250), gk::Vec3(1, 1, 1), 0.6f, 0, 0.0001f, 100));
+
+    commitLights();
+  }
+  void updateLights()
+  {
+    
+
+    commitLights();
+  }
+  void commitLights()
+  {
+    glBindBuffer(GL_UNIFORM_BUFFER, _lightBuffer);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(MyPointLight) * _lights.size(), &_lights.front());
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
   }
 
   void initializeCameras()
@@ -104,19 +120,21 @@ public:
 			     gk::Vector(0, 0, -1),
 			     gk::Vector(0, -1, 0),
 			     gk::Orthographic(-300, 300, -300, 300, 0.01f, 1000));
+    _topCamera.renderingWidth() = 256;
+    _topCamera.renderingHeight() = 256;
 
     glGenTextures(2, topCameraFramebufferTextures);
 
     glBindTexture(GL_TEXTURE_2D, topCameraFramebufferTextures[0]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, _topCameraRenderingWidth, _topCameraRenderingHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, _topCamera.renderingWidth(), _topCamera.renderingHeight(), 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
 
     glBindTexture(GL_TEXTURE_2D, topCameraFramebufferTextures[1]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, _topCameraRenderingWidth, _topCameraRenderingHeight, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, _topCamera.renderingWidth(), _topCamera.renderingHeight(), 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    glGenFramebuffers(1, &_topCameraFramebuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, _topCameraFramebuffer);
+    glGenFramebuffers(1, &_topCamera.framebuffer());
+    glBindFramebuffer(GL_FRAMEBUFFER, _topCamera.framebuffer());
     glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, topCameraFramebufferTextures[0], 0);
     glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, topCameraFramebufferTextures[1], 0);
     glReadBuffer(GL_COLOR_ATTACHMENT0);
@@ -202,18 +220,18 @@ public:
     cameraRenderingPass(_userCamera, visibleModels);
 
     // -- 2e passe: Vue stationnaire de dessus orthographique
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _topCameraFramebuffer);
-    glViewport(0, 0, _topCameraRenderingWidth, _topCameraRenderingHeight);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _topCamera.framebuffer());
+    glViewport(0, 0, _topCamera.renderingWidth(), _topCamera.renderingHeight());
 
     cameraRenderingPass(_topCamera, visibleModels);
 
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
     // -- Composition de l'image finale
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, _topCameraFramebuffer);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, _topCamera.framebuffer());
 
-    glBlitFramebuffer(0, 0, _topCameraRenderingWidth, _topCameraRenderingHeight,
-		      0, 0, _topCameraRenderingWidth, _topCameraRenderingHeight,
+    glBlitFramebuffer(0, 0, _topCamera.renderingWidth(), _topCamera.renderingHeight(),
+		      0, 0, _topCamera.renderingWidth(), _topCamera.renderingHeight(),
 		      GL_COLOR_BUFFER_BIT,
 		      GL_LINEAR);
 
@@ -265,23 +283,24 @@ public:
     if (key(SDLK_PAGEDOWN))
       _userCamera.localTranslate(gk::Vector(0, -1, 0));
 
-    if (key(SDLK_i))
-      _lights[0]->position.z--;
-    if (key(SDLK_j))
-      _lights[0]->position.x--;
-    if (key(SDLK_l))
-      _lights[0]->position.x++;
-    if (key(SDLK_k))
-      _lights[0]->position.z++;
-    if (key(SDLK_p))
-      _lights[0]->position.y++;
-    if (key(SDLK_m))
-      _lights[0]->position.y--;
+    // if (key(SDLK_i))
+    //   _lights[0]->position.z--;
+    // if (key(SDLK_j))
+    //   _lights[0]->position.x--;
+    // if (key(SDLK_l))
+    //   _lights[0]->position.x++;
+    // if (key(SDLK_k))
+    //   _lights[0]->position.z++;
+    // if (key(SDLK_p))
+    //   _lights[0]->position.y++;
+    // if (key(SDLK_m))
+    //   _lights[0]->position.y--;
 
     // if (key('f'))
     //   _lights[0]->constant_attenuation += 0.01f;
     // if (key('v'))
     //   _lights[0]->constant_attenuation -= 0.01f;
+
     // if (key('g'))
     //   _lights[0]->linear_attenuation += 0.005f;
     // if (key('b'))
@@ -291,14 +310,14 @@ public:
     // if (key('n'))
     //   _lights[0]->quadratic_attenuation -= 0.000005f;
 
-    if (key('f'))
+    if (key('g'))
     {
       for (uint i = 0; i < _models.size(); ++i)
 	_models[i]->materialSpecularityBlending() += 0.01f;
 
       printf("Bigguy's specularity blending = %f\r\n", _models[0]->materialSpecularityBlending());
     }
-    if (key('v'))
+    if (key('b'))
     {
       for (uint i = 0; i < _models.size(); ++i)
 	_models[i]->materialSpecularityBlending() -= 0.01f;
@@ -309,7 +328,7 @@ public:
     if(key(' '))
     {
       key(' ') = 0;
-      _lights[0]->print();
+      _lights[0].print();
     }
 
     present();
@@ -351,12 +370,7 @@ public:
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     m_program->uniform("v_matrix") = v.matrix();
-
-    m_program->uniform("light_position") = _lights[0]->position;
-    m_program->uniform("light_color") = _lights[0]->color;
-    m_program->uniform("light_constant_attenuation") = _lights[0]->constant_attenuation;
-    m_program->uniform("light_linear_attenuation") = _lights[0]->linear_attenuation;
-    m_program->uniform("light_quadratic_attenuation") = _lights[0]->quadratic_attenuation;
+    m_program->uniform("light_count") = (int)_lights.size();
 
     for (i = 0; i < models.size(); ++i)
     {

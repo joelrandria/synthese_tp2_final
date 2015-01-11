@@ -17,8 +17,11 @@ class MyFpsCamera
 
   gk::Transform _worldToViewTransform;
   gk::Transform _viewToWorldTransform;
-
   gk::Transform _projectionTransform;
+
+  GLuint _framebuffer;
+  int _renderingWidth;
+  int _renderingHeight;
 
  public:
 
@@ -29,6 +32,10 @@ class MyFpsCamera
 
   gk::Transform viewTransform() const { return _worldToViewTransform; }
   gk::Transform& projectionTransform() { return _projectionTransform; }
+
+  GLuint& framebuffer() { return _framebuffer; }
+  int& renderingWidth() { return _renderingWidth; }
+  int& renderingHeight() { return _renderingHeight; }
 
   void print() const;
 

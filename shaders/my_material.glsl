@@ -27,7 +27,21 @@ void main()
 
 #ifdef FRAGMENT_SHADER
 
+#define POINT_LIGHTS_MAX_COUNT	20
+
 #define PI 3.141592653589793238462643383279
+
+struct point_light
+{
+  vec4 position;
+
+  vec4 color;
+  float constant_attenuation;
+  float linear_attenuation;
+  float quadratic_attenuation;
+
+  float specularity;
+};
 
 in vec3 fragment_position;
 in vec3 fragment_normal;
@@ -35,11 +49,11 @@ in vec2 fragment_texcoords;
 
 uniform mat4 v_matrix;
 
-uniform vec4 light_position;
-uniform vec4 light_color;
-uniform float light_constant_attenuation;
-uniform float light_linear_attenuation;
-uniform float light_quadratic_attenuation;
+uniform int light_count;
+uniform point_light_buffer
+{
+  point_light lights[POINT_LIGHTS_MAX_COUNT];
+};
 
 uniform bool material_diffuse_color_enabled;
 uniform bool material_diffuse_texture_enabled;
@@ -52,7 +66,7 @@ uniform float material_specularity_blending;
 
 out vec4 fragment_color;
 
-void main()
+vec3 incidentLight(int light)
 {
   vec3 n;
   vec3 o;
@@ -63,6 +77,7 @@ void main()
   float d;
   float cos_nl;
   float cos_nh;
+  float falloff;
 
   vec3 diffuse;
   vec3 incident;
@@ -70,7 +85,8 @@ void main()
 
   n = normalize(fragment_normal);
   o = normalize(fragment_position * -1);
-  q = (v_matrix * vec4(light_position.xyz, 1)).xyz;
+
+  q = (v_matrix * vec4(lights[light].position.xyz, 1)).xyz;
   l = normalize(q - fragment_position);
   h = normalize(l + o);
 
@@ -85,19 +101,28 @@ void main()
   else
     diffuse = vec3(0);
 
-  // modèle blinn-phong
-  incident = light_color.rgb * cos_nl / (light_constant_attenuation + (light_linear_attenuation * d) + (light_quadratic_attenuation * pow(d, 2)));
+  falloff =
+    lights[light].constant_attenuation +
+    lights[light].linear_attenuation * d +
+    lights[light].quadratic_attenuation * pow(d, 2);
+
+  incident = lights[light].color.rgb * cos_nl / falloff;
+
   reflection = (material_specularity + 1) * pow(cos_nh, material_specularity) / (2 * PI);
 
-  fragment_color.rgb =
-    (1 - material_specularity_blending) * diffuse * incident +
-    material_specularity_blending * incident * reflection * 0.5 * cos_nl;
+  return vec3((1 - material_specularity_blending) * diffuse * incident +
+	      material_specularity_blending * incident * reflection * 0.5 * cos_nl); // Blinn-Phong
+  // return vec3(diffuse * incident * reflection * cos_nl); // Modèle physique
+}
 
-  // modèle physique
-  // incident = light_color.rgb * cos_nl / (light_constant_attenuation + (light_linear_attenuation * d) + (light_quadratic_attenuation * pow(d, 2)));
-  // reflection = (material_specularity + 1) * pow(cos_nh, material_specularity) / (2 * PI);
+void main()
+{
+  int i;
 
-  // fragment_color.rgb = diffuse * incident * reflection * cos_nl;
+  fragment_color.rgb = vec3(0);
+
+  for (i = 0; i < light_count; ++i)
+    fragment_color.rgb += incidentLight(i);
 }
 
 #endif
