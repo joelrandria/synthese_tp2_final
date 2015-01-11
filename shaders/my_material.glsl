@@ -27,6 +27,8 @@ void main()
 
 #ifdef FRAGMENT_SHADER
 
+#define PI 3.141592653589793238462643383279
+
 in vec3 fragment_position;
 in vec3 fragment_normal;
 in vec2 fragment_texcoords;
@@ -40,31 +42,41 @@ uniform float light_linear_attenuation;
 uniform float light_quadratic_attenuation;
 
 uniform bool material_diffuse_color_enabled;
-uniform vec3 material_diffuse_color;
-
 uniform bool material_diffuse_texture_enabled;
+
+uniform vec3 material_diffuse_color;
 uniform sampler2D material_diffuse_texture;
+
+uniform float material_specularity;
+uniform float material_specularity_blending;
 
 out vec4 fragment_color;
 
 void main()
 {
   vec3 n;
+  vec3 o;
   vec3 q;
-  vec3 pq;
+  vec3 l;
+  vec3 h;
 
   float d;
-  float cos_theta;
+  float cos_nl;
+  float cos_nh;
 
   vec3 diffuse;
   vec3 incident;
+  float reflection;
 
   n = normalize(fragment_normal);
+  o = normalize(fragment_position * -1);
   q = (v_matrix * vec4(light_position.xyz, 1)).xyz;
-  pq = normalize(q - fragment_position);
+  l = normalize(q - fragment_position);
+  h = normalize(l + o);
 
   d = distance(fragment_position, q);
-  cos_theta = clamp(dot(n, pq), 0, 1);
+  cos_nl = max(0, dot(n, l));
+  cos_nh = max(0, dot(n, h));
 
   if (material_diffuse_texture_enabled)
     diffuse = texture(material_diffuse_texture, fragment_texcoords).rgb;
@@ -73,9 +85,19 @@ void main()
   else
     diffuse = vec3(0);
 
-  incident = light_color.rgb * cos_theta / (light_constant_attenuation + (light_linear_attenuation * d) + (light_quadratic_attenuation * pow(d, 2)));
+  // modèle blinn-phong
+  incident = light_color.rgb * cos_nl / (light_constant_attenuation + (light_linear_attenuation * d) + (light_quadratic_attenuation * pow(d, 2)));
+  reflection = (material_specularity + 1) * pow(cos_nh, material_specularity) / (2 * PI);
 
-  fragment_color.rgb = diffuse * incident;
+  fragment_color.rgb =
+    (1 - material_specularity_blending) * diffuse * incident +
+    material_specularity_blending * incident * reflection * 0.5 * cos_nl;
+
+  // modèle physique
+  // incident = light_color.rgb * cos_nl / (light_constant_attenuation + (light_linear_attenuation * d) + (light_quadratic_attenuation * pow(d, 2)));
+  // reflection = (material_specularity + 1) * pow(cos_nh, material_specularity) / (2 * PI);
+
+  // fragment_color.rgb = diffuse * incident * reflection * cos_nl;
 }
 
 #endif

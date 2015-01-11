@@ -74,7 +74,7 @@ MyModel* MyModelFactory::createModel(const std::string& meshFilename, const std:
 
   model = new MyModel();
   model->_name = meshFilename;
-  model->_hasDiffuseTexture = true;
+  model->_materialDiffuseTextureEnabled = true;
 
   setMesh(model, meshFilename);
   setTexture(model, diffuseTextureFilename);
@@ -248,8 +248,8 @@ gk::Mesh* MyModelFactory::createBoxMesh()
 
 void MyModelFactory::setTexture(MyModel* model, gk::Image* image)
 {
-  glGenTextures(1, (GLuint*)&model->_diffuseTexture);
-  glBindTexture(GL_TEXTURE_2D, (GLuint)model->_diffuseTexture);
+  glGenTextures(1, (GLuint*)&model->_materialDiffuseTexture);
+  glBindTexture(GL_TEXTURE_2D, (GLuint)model->_materialDiffuseTexture);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image->width, image->height, 0, GL_RGB, GL_UNSIGNED_BYTE, image->data);
   glGenerateMipmap(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, 0);
@@ -262,7 +262,7 @@ void MyModelFactory::setTexture(MyModel* model, const std::string& filename)
   it = _textures.find(filename);
   if (it != _textures.end())
   {
-    model->_diffuseTexture = it->second;
+    model->_materialDiffuseTexture = it->second;
   }
   else
   {
@@ -275,7 +275,7 @@ void MyModelFactory::setTexture(MyModel* model, const std::string& filename)
 
     setTexture(model, image);
 
-    _textures[filename] = model->_diffuseTexture;
+    _textures[filename] = model->_materialDiffuseTexture;
 
     delete image;
   }

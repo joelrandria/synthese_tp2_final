@@ -16,20 +16,26 @@ class MyModel
 
  private:
 
+  /*! Général */
   std::string _name;
 
+  /*! Transformations */
   gk::Point _position;
   gk::Transform _modelToWorldTransform;
 
+  /*! Maillage */
   static GLuint _sharedVertexArray;
-
   MyMeshInfo _meshInfo;
 
-  bool _hasDiffuseColor;
-  gk::Vec3 _diffuseColor;
+  /*! Matériau */
+  bool _materialDiffuseColorEnabled;
+  bool _materialDiffuseTextureEnabled;
 
-  bool _hasDiffuseTexture;
-  GLuint _diffuseTexture;
+  gk::Vec3 _materialDiffuseColor;
+  GLuint _materialDiffuseTexture;
+
+  float _materialSpecularity;
+  float _materialSpecularityBlending;
 
  public:
 
@@ -39,11 +45,14 @@ class MyModel
 
   const MyMeshInfo& meshInfo() const { return _meshInfo; }
 
-  bool& hasDiffuseColor() { return _hasDiffuseColor; }
-  gk::Vec3& diffuseColor() { return _diffuseColor; }
+  bool& materialDiffuseColorEnabled() { return _materialDiffuseColorEnabled; }
+  bool& materialDiffuseTextureEnabled() { return _materialDiffuseTextureEnabled; }
 
-  bool& hasDiffuseTexture() { return _hasDiffuseTexture; }
-  GLuint diffuseTexture() const { return _diffuseTexture; }
+  gk::Vec3& materialDiffuseColor() { return _materialDiffuseColor; }
+  GLuint materialDiffuseTexture() const { return _materialDiffuseTexture; }
+
+  float& materialSpecularity() { return _materialSpecularity; }
+  float& materialSpecularityBlending() { return _materialSpecularityBlending; }
 
   const gk::Transform& modelToWorldTransform() const { return _modelToWorldTransform; }
 

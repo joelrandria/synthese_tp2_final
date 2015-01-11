@@ -9,6 +9,7 @@ struct MyPointLight
 {
   gk::Vec4 position;
   gk::Vec4 color;
+  float specularity;
 
   float constant_attenuation;
   float linear_attenuation;
@@ -16,11 +17,13 @@ struct MyPointLight
 
 MyPointLight(const gk::Vec4& position,
 	       const gk::Vec4& color,
+	       float specularity,
 	       float constant_attenuation,
 	       float linear_attenuation,
 	       float quadratic_attenuation)
 :position(position),
     color(color),
+    specularity(specularity),
     constant_attenuation(constant_attenuation),
     linear_attenuation(linear_attenuation),
     quadratic_attenuation(quadratic_attenuation)
