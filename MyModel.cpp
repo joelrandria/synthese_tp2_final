@@ -7,7 +7,8 @@ GLuint MyModel::_sharedVertexArray = 0;
 MyModel::MyModel()
   :_materialDiffuseColorEnabled(false),
    _materialDiffuseTextureEnabled(false),
-  _materialDiffuseTexture(-1)
+   _materialDiffuseTexture(-1),
+   _materialSpecularityBlending(0)
 {
 }
 
