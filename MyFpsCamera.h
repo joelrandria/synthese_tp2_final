@@ -44,6 +44,8 @@ class MyFpsCamera
 
   void updateRight();
   void updateTransforms();
+
+  void projectBoundingBox(gk::BBox bbox, std::vector<gk::Point>& ndcBBoxVertices) const;
 };
 
 #endif
