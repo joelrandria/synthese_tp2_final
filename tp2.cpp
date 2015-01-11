@@ -11,6 +11,7 @@
 #include "MyModel.h"
 #include "MyModelFactory.h"
 #include "MyMeshInfo.h"
+#include "MyPointLight.h"
 
 #include <stdlib.h>
 #include <string>
@@ -21,18 +22,23 @@ using namespace std;
 
 class TP : public gk::App
 {
+  // gKit stuff
   gk::GLCounter* m_time;
   gk::GLProgram* m_program;
   nv::SdlContext m_widgets;
 
+  // Caméras
   MyFpsCamera _userCamera;
-
   MyFpsCamera _topCamera;
   GLuint _topCameraFramebuffer;
   static const int _topCameraRenderingWidth = 256;
   static const int _topCameraRenderingHeight = 256;
 
+  // Modèles
   std::vector<MyModel*> _models;
+
+  // Lumières
+  std::vector<MyPointLight*> _lights;
 
 public:
 
@@ -52,6 +58,13 @@ public:
   }
   ~TP()
   {
+    uint i;
+
+    for (i = 0; i < _models.size(); ++i)
+      delete _models[i];
+
+    for (i = 0; i < _lights.size(); ++i)
+      delete _lights[i];
   }
 
   int init()
@@ -63,6 +76,7 @@ public:
 
     loadModels();
 
+    initializeLights();
     initializeCameras();
 
     m_time = gk::createTimer();
@@ -70,10 +84,16 @@ public:
     return 0;
   }
 
+  void initializeLights()
+  {
+    _lights.push_back(new MyPointLight(gk::Vec4(200, 20, -200),
+				       gk::Vec4(1, 1, 1),
+				       0.6f, 0, 0.0001f));
+  }
+
   void initializeCameras()
   {
     GLuint topCameraFramebufferTextures[2];
-    GLenum topCameraDrawBuffers[2] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT };
 
     _userCamera = MyFpsCamera(gk::Point(253, 25, 64), gk::Vector(0, 1, 0), gk::Vector(0, 0, -1));
     updateUserCameraProjection();
@@ -94,13 +114,13 @@ public:
     glBindTexture(GL_TEXTURE_2D, 0);
 
     glGenFramebuffers(1, &_topCameraFramebuffer);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _topCameraFramebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, _topCameraFramebuffer);
     glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, topCameraFramebufferTextures[0], 0);
     glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, topCameraFramebufferTextures[1], 0);
     glReadBuffer(GL_COLOR_ATTACHMENT0);
-    glDrawBuffers(2, topCameraDrawBuffers);
+    glDrawBuffer(GL_COLOR_ATTACHMENT0);
     checkFramebufferStatus("Top camera", GL_DRAW_FRAMEBUFFER);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
   }
   void updateUserCameraProjection()
   {
@@ -164,7 +184,7 @@ public:
   {
     std::vector<MyModel*> visibleModels;
 
-    // Rendu scène
+    // 1- Rendu scène
     m_time->start();
 
     // -- Culling
@@ -177,7 +197,7 @@ public:
     // -- 1ère passe: Vue utilisateur
     cameraRenderingPass(_userCamera, visibleModels);
 
-    // -- 2e passe: Vue stationnaire orthographique de dessus
+    // -- 2e passe: Vue stationnaire de dessus orthographique
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _topCameraFramebuffer);
     glViewport(0, 0, _topCameraRenderingWidth, _topCameraRenderingHeight);
 
@@ -202,7 +222,7 @@ public:
 
     m_time->stop();
 
-    // Rendu UI
+    // 2- Rendu UI
     {
       m_widgets.begin();
       m_widgets.beginGroup(nv::GroupFlags_GrowDownFromLeft);
@@ -213,7 +233,7 @@ public:
       m_widgets.end();
     }
 
-    // Gestion clavier
+    // 3- Gestion clavier
     if (key(SDLK_ESCAPE))
       closeWindow();
 
@@ -226,11 +246,6 @@ public:
     {
       key('c') = 0;
       gk::writeFramebuffer("screenshot.png");
-    }
-    if(key('p'))
-    {
-      key('p') = 0;
-      _userCamera.print();
     }
 
     if (key(SDLK_UP) || key(SDLK_z))
@@ -245,6 +260,38 @@ public:
       _userCamera.localTranslate(gk::Vector(0, 1, 0));
     if (key(SDLK_PAGEDOWN))
       _userCamera.localTranslate(gk::Vector(0, -1, 0));
+
+    if (key(SDLK_i))
+      _lights[0]->position.z--;
+    if (key(SDLK_j))
+      _lights[0]->position.x--;
+    if (key(SDLK_l))
+      _lights[0]->position.x++;
+    if (key(SDLK_k))
+      _lights[0]->position.z++;
+    if (key(SDLK_p))
+      _lights[0]->position.y++;
+    if (key(SDLK_m))
+      _lights[0]->position.y--;
+
+    if (key('f'))
+      _lights[0]->constant_attenuation += 0.01f;
+    if (key('v'))
+      _lights[0]->constant_attenuation -= 0.01f;
+    if (key('g'))
+      _lights[0]->linear_attenuation += 0.01f;
+    if (key('b'))
+      _lights[0]->linear_attenuation -= 0.01f;
+    if (key('h'))
+      _lights[0]->quadratic_attenuation += 0.01f;
+    if (key('n'))
+      _lights[0]->quadratic_attenuation -= 0.01f;
+
+    if(key(' '))
+    {
+      key(' ') = 0;
+      _lights[0]->print();
+    }
 
     present();
 
@@ -284,6 +331,12 @@ public:
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    m_program->uniform("light_position") = _lights[0]->position;
+    m_program->uniform("light_color") = _lights[0]->color;
+    m_program->uniform("light_constant_attenuation") = _lights[0]->constant_attenuation;
+    m_program->uniform("light_linear_attenuation") = _lights[0]->linear_attenuation;
+    m_program->uniform("light_quadratic_attenuation") = _lights[0]->quadratic_attenuation;
+
     for (i = 0; i < models.size(); ++i)
     {
       model = models[i];
@@ -296,11 +349,13 @@ public:
       mv = v * m;
       mvp = vp * m;
 
+      m_program->uniform("v_matrix") = v.matrix();
+      m_program->uniform("mv_matrix") = mv.matrix();
       m_program->uniform("mvp_matrix") = mvp.matrix();
       m_program->uniform("mv_normalmatrix") = mv.normalMatrix();
 
-      m_program->uniform("has_diffuse_color") = model->hasDiffuseColor();
-      m_program->uniform("has_diffuse_texture") = model->hasDiffuseTexture();
+      m_program->uniform("material_diffuse_color_enabled") = model->hasDiffuseColor();
+      m_program->uniform("material_diffuse_texture_enabled") = model->hasDiffuseTexture();
 
       if (model->hasDiffuseTexture())
       {
@@ -308,11 +363,11 @@ public:
 	glBindTexture(GL_TEXTURE_2D, model->diffuseTexture());
 	glBindSampler(0, gk::defaultSampler()->name);
 
-	m_program->sampler("diffuse_texture") = 0;
+	m_program->sampler("material_diffuse_texture") = 0;
       }
       else if (model->hasDiffuseColor())
       {
-	m_program->uniform("diffuse_color") = model->diffuseColor();
+	m_program->uniform("material_diffuse_color") = model->diffuseColor();
       }
 
       glDrawElementsBaseVertex(GL_TRIANGLES,
@@ -323,6 +378,10 @@ public:
 
       glBindTexture(GL_TEXTURE_2D, 0);
     }
+  }
+  void lightPositionsRenderingPass()
+  {
+    
   }
 
   void processWindowResize(SDL_WindowEvent& event)
