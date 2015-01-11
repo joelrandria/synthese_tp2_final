@@ -165,7 +165,7 @@ public:
       model = MyModelFactory::createModel(filename, "bigguy_ambient.png");
       model->setPosition(gk::Point((i % modelColumnCount) * modelSpacing, 0, ((int)i / modelColumnCount) * -modelSpacing));
       model->materialSpecularity() = 100;
-      model->materialSpecularityBlending() = 0.3f;
+      model->materialSpecularityBlending() = 0.05f;
 
       _models.push_back(model);
     }
@@ -292,11 +292,19 @@ public:
     //   _lights[0]->quadratic_attenuation -= 0.000005f;
 
     if (key('f'))
+    {
       for (uint i = 0; i < _models.size(); ++i)
-	_models[i]->materialSpecularity()++;
+	_models[i]->materialSpecularityBlending() += 0.01f;
+
+      printf("Bigguy's specularity blending = %f\r\n", _models[0]->materialSpecularityBlending());
+    }
     if (key('v'))
+    {
       for (uint i = 0; i < _models.size(); ++i)
-	_models[i]->materialSpecularity()--;
+	_models[i]->materialSpecularityBlending() -= 0.01f;
+
+      printf("Bigguy's specularity blending = %f\r\n", _models[0]->materialSpecularityBlending());
+    }
 
     if(key(' '))
     {

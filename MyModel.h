@@ -25,6 +25,7 @@ class MyModel
 
   /*! Maillage */
   static GLuint _sharedVertexArray;
+
   MyMeshInfo _meshInfo;
 
   /*! Matériau */
