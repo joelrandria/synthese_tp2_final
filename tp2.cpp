@@ -72,14 +72,44 @@ public:
     if(m_program == gk::GLProgram::null())
       return -1;
 
-    loadModels();
-
+    initializeModels();
     initializeLights();
     initializeCameras();
 
     m_time = gk::createTimer();
 
     return 0;
+  }
+
+  void initializeModels()
+  {
+    uint i;
+
+    char filename[255];
+
+    MyModel* model;
+
+    const int modelSpacing = 50;
+    const int modelColumnCount = 10;
+
+    // Les bigguys
+    for (i = 0; i < 100; ++i)
+    {
+      sprintf(filename, "Bigguy/bigguy_%.2d.obj", (i % 59));
+
+      model = MyModelFactory::createModel(filename, "bigguy_ambient.png");
+      model->setPosition(gk::Point((i % modelColumnCount) * modelSpacing, 0, ((int)i / modelColumnCount) * -modelSpacing));
+      model->materialSpecularity() = 100;
+      model->materialSpecularityBlending() = 0.05f;
+
+      _models.push_back(model);
+    }
+
+    // Le sol
+    model = MyModelFactory::createBox(gk::Point(-50, -14, 50), gk::Point(510, -12, -510));
+    model->materialDiffuseColorEnabled() = true;
+    model->materialDiffuseColor() = gk::Vec3(0.6f, 0.6f, 0.6f);
+    _models.push_back(model);
   }
 
   void initializeLights()
@@ -91,14 +121,40 @@ public:
     glUniformBlockBinding(m_program->name, m_program->uniformBuffer("point_light_buffer").index, 0);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
+    addLight();
+  }
+  void addLight()
+  {
     _lights.push_back(MyPointLight(gk::Point(250, 20, 0), gk::Vec3(1, 1, 1), 0.6f, 0, 0.0001f, 100));
-    _lights.push_back(MyPointLight(gk::Point(250, 20, -250), gk::Vec3(1, 1, 1), 0.6f, 0, 0.0001f, 100));
 
     commitLights();
   }
-  void updateLights()
+  void removeLight()
   {
-    
+    _lights.pop_back();
+
+    commitLights();
+  }
+  void updateLightsAnimation()
+  {
+    uint i;
+
+    gk::Point p;
+
+    gk::Transform sceneTranslation;
+    gk::Transform sceneTranslationInv;
+
+    sceneTranslation = gk::Translate(gk::Vector(230, 0, -230));
+    sceneTranslationInv = sceneTranslation.inverse();
+
+    for (i = 0; i < _lights.size(); ++i)
+    {
+      p = sceneTranslationInv(gk::Point(_lights[i].position.x, _lights[i].position.y, _lights[i].position.z));
+      p = gk::RotateY(1)(p);
+      p = sceneTranslation(p);
+
+      _lights[i].position = gk::glsl::vec4(p.x, p.y, p.z, 1);
+    }
 
     commitLights();
   }
@@ -164,42 +220,16 @@ public:
     }
   }
 
-  void loadModels()
-  {
-    uint i;
-
-    char filename[255];
-
-    MyModel* model;
-
-    const int modelSpacing = 50;
-    const int modelColumnCount = 10;
-
-    // Les bigguys
-    for (i = 0; i < 100; ++i)
-    {
-      sprintf(filename, "Bigguy/bigguy_%.2d.obj", (i % 59));
-
-      model = MyModelFactory::createModel(filename, "bigguy_ambient.png");
-      model->setPosition(gk::Point((i % modelColumnCount) * modelSpacing, 0, ((int)i / modelColumnCount) * -modelSpacing));
-      model->materialSpecularity() = 100;
-      model->materialSpecularityBlending() = 0.05f;
-
-      _models.push_back(model);
-    }
-
-    // Le sol
-    model = MyModelFactory::createBox(gk::Point(-50, -14, 50), gk::Point(510, -12, -510));
-    model->materialDiffuseColorEnabled() = true;
-    model->materialDiffuseColor() = gk::Vec3(0.6f, 0.6f, 0.6f);
-    _models.push_back(model);
-
-    printf("%d modèle(s) chargé(s)\r\n", (int)_models.size());
-  }
-
   int quit()
   {
     return 0;
+  }
+
+  int update(const int time, const int delta)
+  {
+    updateLightsAnimation();
+
+    return 1;
   }
 
   int draw()
@@ -282,6 +312,17 @@ public:
       _userCamera.localTranslate(gk::Vector(0, 1, 0));
     if (key(SDLK_PAGEDOWN))
       _userCamera.localTranslate(gk::Vector(0, -1, 0));
+
+    if (key(SDLK_KP_PLUS))
+    {
+      key(SDLK_KP_PLUS) = 0;
+      addLight();
+    }
+    if (key(SDLK_KP_MINUS))
+    {
+      key(SDLK_KP_MINUS) = 0;
+      removeLight();
+    }
 
     // if (key(SDLK_i))
     //   _lights[0]->position.z--;

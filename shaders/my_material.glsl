@@ -111,7 +111,7 @@ vec3 incidentLight(int light)
   reflection = (material_specularity + 1) * pow(cos_nh, material_specularity) / (2 * PI);
 
   return vec3((1 - material_specularity_blending) * diffuse * incident +
-	      material_specularity_blending * incident * reflection * 0.5 * cos_nl); // Blinn-Phong
+  	      material_specularity_blending * incident * reflection * 0.5 * cos_nl); // Blinn-Phong
   // return vec3(diffuse * incident * reflection * cos_nl); // Modèle physique
 }
 
