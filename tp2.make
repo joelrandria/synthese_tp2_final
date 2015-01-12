@@ -94,6 +94,7 @@ OBJECTS := \
 	$(OBJDIR)/nvGLCorePainter.o \
 	$(OBJDIR)/nvFont.o \
 	$(OBJDIR)/MyFpsCamera.o \
+	$(OBJDIR)/MyPointLight.o \
 	$(OBJDIR)/MyModel.o \
 	$(OBJDIR)/MyModelFactory.o \
 	$(OBJDIR)/tp2.o \
@@ -246,6 +247,9 @@ $(OBJDIR)/nvFont.o: gKit/Widgets/nvFont.cpp
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 
 $(OBJDIR)/MyFpsCamera.o: MyFpsCamera.cpp
+	@echo $(notdir $<)
+	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
+$(OBJDIR)/MyPointLight.o: MyPointLight.cpp
 	@echo $(notdir $<)
 	$(SILENT) $(CXX) $(CXXFLAGS) -o "$@" -c "$<"
 $(OBJDIR)/MyModel.o: MyModel.cpp

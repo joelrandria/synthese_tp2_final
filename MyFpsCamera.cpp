@@ -99,7 +99,7 @@ void MyFpsCamera::updateTransforms()
   _worldToViewTransform = _viewToWorldTransform.inverse();
 }
 
-bool MyFpsCamera::isVisible(const MyModel& model)
+bool MyFpsCamera::isVisible(const MyModel& model) const
 {
   uint i;
   std::vector<gk::Point> ndcBBoxVertices;

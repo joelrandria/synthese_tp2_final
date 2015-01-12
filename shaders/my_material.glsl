@@ -34,13 +34,14 @@ void main()
 struct point_light
 {
   vec4 position;
-
   vec4 color;
+
   float constant_attenuation;
   float linear_attenuation;
   float quadratic_attenuation;
-
   float specularity;
+
+  uint framebuffer; // inutilisé
 };
 
 in vec3 fragment_position;
@@ -97,9 +98,12 @@ vec3 reflectedLight(int light, vec3 n, vec3 o, vec3 diffuse)
 
   reflection = (material_specularity + 1) * pow(cos_nh, material_specularity) / (2 * PI);
 
+  // Blinn-Phong
   return vec3((1 - material_specularity_blending) * diffuse * incident +
-  	      material_specularity_blending * incident * reflection * 0.5 * cos_nl); // Blinn-Phong
-  // return vec3(diffuse * incident * reflection * cos_nl); // Modèle physique
+  	      material_specularity_blending * incident * reflection * 0.5 * cos_nl);
+
+  // Modèle physique
+  // return vec3(diffuse * incident * reflection * cos_nl);
 }
 
 void main()

@@ -125,7 +125,40 @@ public:
   }
   void addLight()
   {
-    _lights.push_back(MyPointLight(gk::Point(250, 20, 0), gk::Vec3(1, 1, 1), 0.6f, 0, 0.0001f, 100));
+    char lightName[20];
+
+    GLuint lightFramebuffer;
+    GLuint lightFramebufferTextures[2];
+
+    const int lightTextureWidth = 1024;
+    const int lightTextureHeight = 1024;
+
+    sprintf(lightName, "Light #%d", (int)_lights.size());
+
+    glGenTextures(2, lightFramebufferTextures);
+
+    glBindTexture(GL_TEXTURE_2D, lightFramebufferTextures[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, lightTextureWidth, lightTextureHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glBindTexture(GL_TEXTURE_2D, lightFramebufferTextures[1]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, lightTextureWidth, lightTextureHeight, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glGenFramebuffers(1, &lightFramebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, lightFramebuffer);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, lightFramebufferTextures[0], 0);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, lightFramebufferTextures[1], 0);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    glDrawBuffer(GL_COLOR_ATTACHMENT0);
+    checkFramebufferStatus(lightName, GL_DRAW_FRAMEBUFFER);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    _lights.push_back(MyPointLight(gk::Point(250, 20, 0),
+				   gk::Vec3(1, 1, 1),
+				   0.6f, 0, 0.0001f,
+				   100,
+				   lightFramebuffer));
 
     commitLights();
   }
@@ -200,7 +233,7 @@ public:
   }
   void updateUserCameraProjection()
   {
-    _userCamera.projectionTransform() = gk::Perspective(60, (float)windowWidth() / (float)windowHeight(), 0.01f, 1000);
+    _userCamera.setProjectionTransform(gk::Perspective(60, (float)windowWidth() / (float)windowHeight(), 0.01f, 1000));
   }
 
   void checkFramebufferStatus(const std::string& name, GLenum target)
@@ -246,10 +279,13 @@ public:
     glViewport(0, 0, windowWidth(), windowHeight());
     glBindVertexArray(MyModel::sharedVertexArray());
 
-    // -- 1ère passe: Vue utilisateur
+    // -- Passe #1: Rendu profondeur de la 1ère lumière
+    lightRenderingPass(_lights[0], _models);
+
+    // -- Passe #1: Vue utilisateur
     cameraRenderingPass(_userCamera, visibleModels);
 
-    // -- 2e passe: Vue stationnaire de dessus orthographique
+    // -- Passe #2: Vue stationnaire de dessus orthographique
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _topCamera.framebuffer());
     glViewport(0, 0, _topCamera.renderingWidth(), _topCamera.renderingHeight());
 
@@ -270,11 +306,108 @@ public:
     // -- Nettoyage des états OpenGL
     glBindVertexArray(0);
 
-    glViewport(0, 0, windowWidth(), windowHeight());
-
     m_time->stop();
 
-    // 2- Rendu UI
+    ui();
+
+    present();
+
+    return 1;
+  }
+
+  void getUserVisibleModels(const std::vector<MyModel*>& models, std::vector<MyModel*>& visible)
+  {
+    uint i;
+
+    visible.clear();
+
+    for (i = 0; i < models.size(); ++i)
+      if (_userCamera.isVisible(*models[i]))
+	visible.push_back(models[i]);
+  }
+
+  void lightRenderingPass(const MyPointLight& light, const std::vector<MyModel*>& models)
+  {
+    gk::Transform lightPersp;
+
+    light.getBoundingPerspective(models, lightPersp);
+
+    
+  }
+  void cameraRenderingPass(const MyFpsCamera& camera, const std::vector<MyModel*>& models)
+  {
+    uint i;
+
+    MyModel* model;
+    MyMeshInfo meshInfo;
+
+    gk::Transform v;
+    gk::Transform p;
+    gk::Transform vp;
+
+    gk::Transform m;
+    gk::Transform mv;
+    gk::Transform mvp;
+
+    v = camera.viewTransform();
+    p = camera.getProjectionTransform();
+
+    vp = p * v;
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    m_program->uniform("v_matrix") = v.matrix();
+    m_program->uniform("light_count") = (int)_lights.size();
+
+    for (i = 0; i < models.size(); ++i)
+    {
+      model = models[i];
+      if (!camera.isVisible(*model))
+	continue;
+
+      meshInfo = model->meshInfo();
+
+      m = model->modelToWorldTransform();
+      mv = v * m;
+      mvp = vp * m;
+
+      m_program->uniform("mv_matrix") = mv.matrix();
+      m_program->uniform("mv_normalmatrix") = mv.normalMatrix();
+      m_program->uniform("mvp_matrix") = mvp.matrix();
+
+      m_program->uniform("material_diffuse_color_enabled") = model->materialDiffuseColorEnabled();
+      m_program->uniform("material_diffuse_texture_enabled") = model->materialDiffuseTextureEnabled();
+      m_program->uniform("material_specularity") = model->materialSpecularity();
+      m_program->uniform("material_specularity_blending") = model->materialSpecularityBlending();
+
+      if (model->materialDiffuseTextureEnabled())
+      {
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, model->materialDiffuseTexture());
+	glBindSampler(0, gk::defaultSampler()->name);
+
+	m_program->sampler("material_diffuse_texture") = 0;
+      }
+      else if (model->materialDiffuseColorEnabled())
+      {
+	m_program->uniform("material_diffuse_color") = model->materialDiffuseColor();
+      }
+
+      glDrawElementsBaseVertex(GL_TRIANGLES,
+			       meshInfo.gpuIndexCount,
+			       GL_UNSIGNED_INT,
+			       (GLvoid*)(sizeof(GLuint) * meshInfo.gpuIndexOffset),
+			       meshInfo.gpuVertexOffset);
+
+      glBindTexture(GL_TEXTURE_2D, 0);
+    }
+  }
+
+  void ui()
+  {
+    glViewport(0, 0, windowWidth(), windowHeight());
+
+    // Widgets
     {
       m_widgets.begin();
       m_widgets.beginGroup(nv::GroupFlags_GrowDownFromLeft);
@@ -285,7 +418,7 @@ public:
       m_widgets.end();
     }
 
-    // 3- Gestion clavier
+    // Gestion clavier
     if (key(SDLK_ESCAPE))
       closeWindow();
 
@@ -370,90 +503,6 @@ public:
     {
       key(' ') = 0;
       _lights[0].print();
-    }
-
-    present();
-
-    return 1;
-  }
-
-  void getUserVisibleModels(const std::vector<MyModel*>& models, std::vector<MyModel*>& visible)
-  {
-    uint i;
-
-    visible.clear();
-
-    for (i = 0; i < models.size(); ++i)
-      if (_userCamera.isVisible(*models[i]))
-	visible.push_back(models[i]);
-  }
-
-  void cameraRenderingPass(MyFpsCamera& camera, const std::vector<MyModel*>& models)
-  {
-    uint i;
-
-    MyModel* model;
-    MyMeshInfo meshInfo;
-
-    gk::Transform v;
-    gk::Transform p;
-    gk::Transform vp;
-
-    gk::Transform m;
-    gk::Transform mv;
-    gk::Transform mvp;
-
-    v = camera.viewTransform();
-    p = camera.projectionTransform();
-
-    vp = p * v;
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    m_program->uniform("v_matrix") = v.matrix();
-    m_program->uniform("light_count") = (int)_lights.size();
-
-    for (i = 0; i < models.size(); ++i)
-    {
-      model = models[i];
-      if (!camera.isVisible(*model))
-	continue;
-
-      meshInfo = model->meshInfo();
-
-      m = model->modelToWorldTransform();
-      mv = v * m;
-      mvp = vp * m;
-
-      m_program->uniform("mv_matrix") = mv.matrix();
-      m_program->uniform("mv_normalmatrix") = mv.normalMatrix();
-      m_program->uniform("mvp_matrix") = mvp.matrix();
-
-      m_program->uniform("material_diffuse_color_enabled") = model->materialDiffuseColorEnabled();
-      m_program->uniform("material_diffuse_texture_enabled") = model->materialDiffuseTextureEnabled();
-      m_program->uniform("material_specularity") = model->materialSpecularity();
-      m_program->uniform("material_specularity_blending") = model->materialSpecularityBlending();
-
-      if (model->materialDiffuseTextureEnabled())
-      {
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, model->materialDiffuseTexture());
-	glBindSampler(0, gk::defaultSampler()->name);
-
-	m_program->sampler("material_diffuse_texture") = 0;
-      }
-      else if (model->materialDiffuseColorEnabled())
-      {
-	m_program->uniform("material_diffuse_color") = model->materialDiffuseColor();
-      }
-
-      glDrawElementsBaseVertex(GL_TRIANGLES,
-			       meshInfo.gpuIndexCount,
-			       GL_UNSIGNED_INT,
-			       (GLvoid*)(sizeof(GLuint) * meshInfo.gpuIndexOffset),
-			       meshInfo.gpuVertexOffset);
-
-      glBindTexture(GL_TEXTURE_2D, 0);
     }
   }
 

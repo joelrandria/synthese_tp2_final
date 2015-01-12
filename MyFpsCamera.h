@@ -31,7 +31,9 @@ class MyFpsCamera
 	      const gk::Transform& projectionTransform = gk::Transform());
 
   gk::Transform viewTransform() const { return _worldToViewTransform; }
-  gk::Transform& projectionTransform() { return _projectionTransform; }
+
+  gk::Transform getProjectionTransform() const { return _projectionTransform; }
+  void setProjectionTransform(const gk::Transform& p) { _projectionTransform = p; }
 
   GLuint& framebuffer() { return _framebuffer; }
   int& renderingWidth() { return _renderingWidth; }
@@ -45,7 +47,7 @@ class MyFpsCamera
   void translate(const gk::Vector& translation);
   void localTranslate(const gk::Vector& translation);
 
-  bool isVisible(const MyModel& model);
+  bool isVisible(const MyModel& model) const;
 
  private:
 
