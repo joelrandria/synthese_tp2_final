@@ -66,10 +66,8 @@ uniform float material_specularity_blending;
 
 out vec4 fragment_color;
 
-vec3 incidentLight(int light)
+vec3 reflectedLight(int light, vec3 n, vec3 o, vec3 diffuse)
 {
-  vec3 n;
-  vec3 o;
   vec3 q;
   vec3 l;
   vec3 h;
@@ -79,12 +77,8 @@ vec3 incidentLight(int light)
   float cos_nh;
   float falloff;
 
-  vec3 diffuse;
   vec3 incident;
   float reflection;
-
-  n = normalize(fragment_normal);
-  o = normalize(fragment_position * -1);
 
   q = (v_matrix * vec4(lights[light].position.xyz, 1)).xyz;
   l = normalize(q - fragment_position);
@@ -93,13 +87,6 @@ vec3 incidentLight(int light)
   d = distance(fragment_position, q);
   cos_nl = max(0, dot(n, l));
   cos_nh = max(0, dot(n, h));
-
-  if (material_diffuse_texture_enabled)
-    diffuse = texture(material_diffuse_texture, fragment_texcoords).rgb;
-  else if (material_diffuse_color_enabled)
-    diffuse = material_diffuse_color;
-  else
-    diffuse = vec3(0);
 
   falloff =
     lights[light].constant_attenuation +
@@ -119,10 +106,25 @@ void main()
 {
   int i;
 
+  vec3 n;
+  vec3 o;
+
+  vec3 diffuse;
+
+  n = normalize(fragment_normal);
+  o = normalize(fragment_position * -1);
+
+  if (material_diffuse_texture_enabled)
+    diffuse = texture(material_diffuse_texture, fragment_texcoords).rgb;
+  else if (material_diffuse_color_enabled)
+    diffuse = material_diffuse_color;
+  else
+    diffuse = vec3(0);
+
   fragment_color.rgb = vec3(0);
 
   for (i = 0; i < light_count; ++i)
-    fragment_color.rgb += incidentLight(i);
+    fragment_color.rgb += reflectedLight(i, n, o, diffuse);
 }
 
 #endif
