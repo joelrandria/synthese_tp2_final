@@ -43,12 +43,14 @@ class TP : public gk::App
 
   // Lumières
   GLuint _lightBuffer;
+  bool _lightAnimationEnabled;
   std::vector<MyPointLight> _lights;
 
 public:
 
   TP()
-    :gk::App()
+    :gk::App(),
+     _lightAnimationEnabled(false)
   {
     gk::AppSettings settings;
     settings.setGLVersion(3, 3);
@@ -101,30 +103,34 @@ public:
 
   void loadModels()
   {
-    uint i;
+    int i;
+    int r;
+    int c;
 
     char filename[255];
 
     MyModel* model;
-
     const int modelSpacing = 50;
-    const int modelColumnCount = 10;
 
     // Les bigguys
-    for (i = 0; i < 100; ++i)
+    i = 0;
+
+    for (r = 0; r < 3; ++r)
     {
-      sprintf(filename, "Bigguy/bigguy_%.2d.obj", (i % 59));
+      for (c = 0; c < 3; ++c)
+      {
+	sprintf(filename, "Bigguy/bigguy_%.2d.obj", (i++ % 59));
 
-      model = MyModelFactory::createModel(filename, "bigguy_ambient.png");
-      model->setPosition(gk::Point((i % modelColumnCount) * modelSpacing, 0, ((int)i / modelColumnCount) * -modelSpacing));
-      model->materialSpecularity() = 100;
-      model->materialSpecularityBlending() = 0.05f;
-
-      _models.push_back(model);
+	model = MyModelFactory::createModel(filename, "bigguy_ambient.png");
+	model->setPosition(gk::Point((r - 1) * modelSpacing, 0, (c - 1) * -modelSpacing));
+	model->materialSpecularity() = 100;
+	model->materialSpecularityBlending() = 0.05f;
+	_models.push_back(model);
+      }
     }
 
     // Le sol
-    model = MyModelFactory::createBox(gk::Point(-50, -14, 50), gk::Point(510, -12, -510));
+    model = MyModelFactory::createBox(gk::Point(-75, -14, 75), gk::Point(75, -9, -75));
     model->materialDiffuseColorEnabled() = true;
     model->materialDiffuseColor() = gk::Vec3(0.6f, 0.6f, 0.6f);
     _models.push_back(model);
@@ -169,9 +175,9 @@ public:
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    _lights.push_back(MyPointLight(gk::Point(250, 50, 0),
+    _lights.push_back(MyPointLight(gk::Point(0, 175, 175),
 				   gk::Vec3(1, 1, 1),
-				   0.6f, 0, 0.0001f,
+				   0.6f, 0, 0.000025f,
 				   100,
 				   lightFramebuffer));
 
@@ -186,20 +192,11 @@ public:
   void updateLightsAnimation()
   {
     uint i;
-
     gk::Point p;
-
-    gk::Transform sceneTranslation;
-    gk::Transform sceneTranslationInv;
-
-    sceneTranslation = gk::Translate(gk::Vector(230, 0, -230));
-    sceneTranslationInv = sceneTranslation.inverse();
 
     for (i = 0; i < _lights.size(); ++i)
     {
-      p = sceneTranslationInv(gk::Point(_lights[i].position.x, _lights[i].position.y, _lights[i].position.z));
-      p = gk::RotateY(1)(p);
-      p = sceneTranslation(p);
+      p = gk::RotateY(1)(gk::Point(_lights[i].position.x, _lights[i].position.y, _lights[i].position.z));
 
       _lights[i].position = gk::glsl::vec4(p.x, p.y, p.z, 1);
     }
@@ -217,13 +214,13 @@ public:
   {
     GLuint topCameraFramebufferTextures[2];
 
-    _userCamera = MyFpsCamera(gk::Point(253, 25, 64), gk::Vector(0, 1, 0), gk::Vector(0, 0, -1));
+    _userCamera = MyFpsCamera(gk::Point(0, 25, 140), gk::Vector(0, 1, 0), gk::Vector(0, 0, -1));
     updateUserCameraProjection();
 
-    _topCamera = MyFpsCamera(gk::Point(233, 477, -230),
+    _topCamera = MyFpsCamera(gk::Point(0, 50, 0),
 			     gk::Vector(0, 0, -1),
 			     gk::Vector(0, -1, 0),
-			     gk::Orthographic(-300, 300, -300, 300, 0.01f, 1000));
+			     gk::Orthographic(-100, 100, -100, 100, 0.01f, 1000));
     _topCamera.renderingWidth() = 256;
     _topCamera.renderingHeight() = 256;
 
@@ -275,7 +272,8 @@ public:
 
   int update(const int time, const int delta)
   {
-    updateLightsAnimation();
+    if (_lightAnimationEnabled)
+      updateLightsAnimation();
 
     return 1;
   }
@@ -293,7 +291,7 @@ public:
     getUserVisibleModels(_models, visibleModels);
 
     // -- Passe #1: Cartes de profondeurs des sources de lumières
-    lightRenderingPass(_lights[0], _models);
+    lightRenderingPass(_lights[0], visibleModels);
 
     // -- Passe #2: Vue utilisateur
     cameraRenderingPass(_userCamera, visibleModels);
@@ -307,7 +305,7 @@ public:
     		      GL_COLOR_BUFFER_BIT,
     		      GL_LINEAR);
 
-    // -- Passe #2: Vue stationnaire de dessus orthographique
+    // -- Vue stationnaire de dessus orthographique
     // glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _topCamera.framebuffer());
     // glViewport(0, 0, _topCamera.renderingWidth(), _topCamera.renderingHeight());
 
@@ -503,6 +501,8 @@ public:
     if (key(SDLK_PAGEDOWN))
       _userCamera.localTranslate(gk::Vector(0, -1, 0));
 
+    // ------------------- Tests lumières -------------------
+
     if (key(SDLK_KP_PLUS))
     {
       key(SDLK_KP_PLUS) = 0;
@@ -513,6 +513,9 @@ public:
       key(SDLK_KP_MINUS) = 0;
       removeLight();
     }
+
+    if (key(' '))
+      _lightAnimationEnabled = !_lightAnimationEnabled;
 
     if (key(SDLK_KP_8))
       _lights[0].position.z = _lights[0].position.z - 1;
@@ -526,29 +529,40 @@ public:
       _lights[0].position.y = _lights[0].position.y + 1;
     if (key(SDLK_KP_9))
       _lights[0].position.y = _lights[0].position.y - 1;
-
-    //commitLights();
-
-    if (key('g'))
-    {
-      for (uint i = 0; i < _models.size(); ++i)
-	_models[i]->materialSpecularityBlending() += 0.01f;
-
-      printf("Bigguy's specularity blending = %f\r\n", _models[0]->materialSpecularityBlending());
-    }
-    if (key('b'))
-    {
-      for (uint i = 0; i < _models.size(); ++i)
-	_models[i]->materialSpecularityBlending() -= 0.01f;
-
-      printf("Bigguy's specularity blending = %f\r\n", _models[0]->materialSpecularityBlending());
-    }
-
-    if(key(' '))
-    {
-      key(' ') = 0;
+    if (key(SDLK_KP_0))
       _lights[0].print();
-    }
+
+    if (key('f'))
+      _lights[0].constant_attenuation += 0.01f;
+    if (key('v'))
+      _lights[0].constant_attenuation -= 0.01f;
+    if (key('g'))
+      _lights[0].linear_attenuation += 0.01f;
+    if (key('b'))
+      _lights[0].linear_attenuation -= 0.01f;
+    if (key('h'))
+      _lights[0].quadratic_attenuation += 0.01f;
+    if (key('n'))
+      _lights[0].quadratic_attenuation -= 0.01f;
+
+    commitLights();
+
+    // if (key('g'))
+    // {
+    //   for (uint i = 0; i < _models.size(); ++i)
+    // 	_models[i]->materialSpecularityBlending() += 0.01f;
+
+    //   printf("Bigguy's specularity blending = %f\r\n", _models[0]->materialSpecularityBlending());
+    // }
+    // if (key('b'))
+    // {
+    //   for (uint i = 0; i < _models.size(); ++i)
+    // 	_models[i]->materialSpecularityBlending() -= 0.01f;
+
+    //   printf("Bigguy's specularity blending = %f\r\n", _models[0]->materialSpecularityBlending());
+    // }
+
+    // ---------------------------------------------------
   }
 
   void processWindowResize(SDL_WindowEvent& event)
