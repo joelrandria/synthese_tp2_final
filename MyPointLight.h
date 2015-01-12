@@ -35,7 +35,9 @@ class MyPointLight
 
   void print() const;
 
-  void getBoundingPerspective(const std::vector<MyModel*> models, gk::Transform& perspective) const;
+  void getSceneViewProjectionTransforms(const std::vector<MyModel*> models,
+					gk::Transform& view,
+					gk::Transform& perspective) const;
 };
 
 #endif

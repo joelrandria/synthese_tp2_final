@@ -16,8 +16,8 @@ MyPointLight::MyPointLight(const gk::Point& position,
    constant_attenuation(constant_attenuation),
    linear_attenuation(linear_attenuation),
    quadratic_attenuation(quadratic_attenuation),
-  specularity(specularity),
-   framebuffer(0)
+   specularity(specularity),
+   framebuffer(framebuffer)
 {
 }
 
@@ -29,21 +29,28 @@ void MyPointLight::print() const
 	 (float)constant_attenuation, (float)linear_attenuation, (float)quadratic_attenuation);
 }
 
-void MyPointLight::getBoundingPerspective(const std::vector<MyModel*> models, gk::Transform& perspective) const
+void MyPointLight::getSceneViewProjectionTransforms(const std::vector<MyModel*> models,
+						    gk::Transform& view,
+						    gk::Transform& perspective) const
 {
   uint i;
 
-  gk::BBox box;
-  gk::Point sphereCenter;
-  float sphereRadius;
-  float distance;
+  gk::Point lightPosition;
+
+  gk::BBox sceneBBox;
+  gk::Point sceneBSphereCenter;
+  float sceneBSphereRadius;
+  float sceneDistance;
+
+  lightPosition = gk::Point(position.x, position.y, position.z);
 
   for (i = 0; i < models.size(); ++i)
-    box.Union(models[i]->boundingBox());
+    sceneBBox.Union(models[i]->boundingBox());
 
-  box.BoundingSphere(sphereCenter, sphereRadius);
+  sceneBBox.BoundingSphere(sceneBSphereCenter, sceneBSphereRadius);
 
-  distance = gk::Distance(gk::Point(position.x, position.y, position.z), sphereCenter);
+  sceneDistance = gk::Distance(lightPosition, sceneBSphereCenter);
 
-  perspective = gk::Perspective(atan(sphereRadius / distance), 1, 0.01f, 1000);
+  view = gk::LookAt(lightPosition, sceneBSphereCenter, gk::Vector(0, 1, 0));
+  perspective = gk::Perspective(atan(sceneBSphereRadius / sceneDistance) * 180 / M_PI, 1, 0.01f, 1000);
 }
