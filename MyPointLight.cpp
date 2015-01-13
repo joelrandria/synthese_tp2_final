@@ -10,14 +10,16 @@ MyPointLight::MyPointLight(const gk::Point& position,
 			   float linear_attenuation,
 			   float quadratic_attenuation,
 			   float specularity,
-			   GLuint shadow_framebuffer)
+			   GLuint shadow_framebuffer,
+			   GLuint shadow_depth_texture)
   :position(position.x, position.y, position.z, 1),
    color(color.x, color.y, color.z, 1),
    constant_attenuation(constant_attenuation),
    linear_attenuation(linear_attenuation),
    quadratic_attenuation(quadratic_attenuation),
    specularity(specularity),
-   shadow_framebuffer(shadow_framebuffer)
+   shadow_framebuffer(shadow_framebuffer),
+  shadow_depth_texture(shadow_depth_texture)
 {
 }
 

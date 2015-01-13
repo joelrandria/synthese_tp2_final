@@ -35,7 +35,8 @@ class MyPointLight
 	       float linear_attenuation,
 	       float quadratic_attenuation,
 	       float specularity,
-	       GLuint shadow_framebuffer = 0);
+	       GLuint shadow_framebuffer = 0,
+	       GLuint shadow_depth_texture = 0);
 
   void print() const;
 

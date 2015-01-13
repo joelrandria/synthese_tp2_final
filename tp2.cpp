@@ -20,8 +20,8 @@
 #include <sstream>
 
 #define POINT_LIGHTS_MAX_COUNT		20
-#define POINT_LIGHT_FB_TEXTURE_WIDTH	1024
-#define POINT_LIGHT_FB_TEXTURE_HEIGHT	1024
+#define POINT_LIGHT_FB_TEXTURE_WIDTH	4096
+#define POINT_LIGHT_FB_TEXTURE_HEIGHT	4096
 
 using namespace std;
 
@@ -163,7 +163,6 @@ public:
 
     glBindTexture(GL_TEXTURE_2D, lightFramebufferTextures[1]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, POINT_LIGHT_FB_TEXTURE_WIDTH, POINT_LIGHT_FB_TEXTURE_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
-
     glGenFramebuffers(1, &lightFramebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, lightFramebuffer);
     glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, lightFramebufferTextures[0], 0);
@@ -179,10 +178,10 @@ public:
 				   gk::Vec3(1, 1, 1),
 				   0.6f, 0, 0.000025f,
 				   100,
-				   lightFramebuffer));
+				   lightFramebuffer,
+				   lightFramebufferTextures[1]));
 
     updateLightsAnimation();
-    commitLights();
   }
   void removeLight()
   {
@@ -200,13 +199,16 @@ public:
       p = gk::RotateY(1)(gk::Point(_lights[i].position.x, _lights[i].position.y, _lights[i].position.z));
 
       _lights[i].position = gk::glsl::vec4(p.x, p.y, p.z, 1);
-      _lights[i].updateShadowMapMatrices(_models);
     }
 
     commitLights();
   }
   void commitLights()
   {
+    uint i;
+    for (i = 0; i < _lights.size(); ++i)
+      _lights[i].updateShadowMapMatrices(_models);
+
     glBindBuffer(GL_UNIFORM_BUFFER, _lightBuffer);
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(MyPointLight) * _lights.size(), &_lights.front());
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
@@ -411,6 +413,32 @@ public:
     m_renderingProgram->uniform("v_matrix") = v.matrix();
     m_renderingProgram->uniform("light_count") = (int)_lights.size();
 
+    /////////////////////////////////////////////////////////////////////
+
+    static gk::GLSampler* depthSampler = gk::createLinearSampler();
+
+    // char samplerName[50];
+
+    // for (i = 0; i < _lights.size(); ++i)
+    // {
+    //   sprintf(samplerName, "light_shadow_depth_texture[%d]", (int)i);
+
+    //   glActiveTexture(GL_TEXTURE1 + i);
+    //   glBindTexture(GL_TEXTURE_2D, _lights[i].shadow_depth_texture);
+    //   glBindSampler(1 + i, depthSampler->name);
+    //   m_renderingProgram->sampler(samplerName) = 1 + i;
+    //   glGenerateMipmap(GL_TEXTURE_2D);
+    // }
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, _lights[0].shadow_depth_texture);
+    glBindSampler(1, depthSampler->name);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    m_renderingProgram->sampler("light_shadow_depth_texture") = 1;
+
+    /////////////////////////////////////////////////////////////////////
+
     for (i = 0; i < models.size(); ++i)
     {
       model = models[i];
@@ -424,6 +452,7 @@ public:
       mvp = vp * m;
 
       m_renderingProgram->uniform("m_matrix") = m.matrix();
+      m_renderingProgram->uniform("m_normalmatrix") = m.normalMatrix();
       m_renderingProgram->uniform("mv_matrix") = mv.matrix();
       m_renderingProgram->uniform("mv_normalmatrix") = mv.normalMatrix();
       m_renderingProgram->uniform("mvp_matrix") = mvp.matrix();
