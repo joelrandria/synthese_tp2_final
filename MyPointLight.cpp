@@ -44,6 +44,8 @@ void MyPointLight::getSceneViewProjectionTransforms(const std::vector<MyModel*> 
   float sceneBSphereRadius;
   float sceneDistance;
 
+  float fovDegrees;
+
   lightPosition = gk::Point(position.x, position.y, position.z);
 
   for (i = 0; i < models.size(); ++i)
@@ -56,19 +58,22 @@ void MyPointLight::getSceneViewProjectionTransforms(const std::vector<MyModel*> 
 
   sceneBSphereCenterLightSpace = view(sceneBSphereCenter);
 
+  fovDegrees = gk::Degrees(asin(sceneBSphereRadius / sceneDistance)) * 2;
+
   printf("Light position: "); lightPosition.print();
   printf("Scene bounding box: "); sceneBBox.print();
   printf("Scene bounding sphere: center = <%f,%f,%f>, radius = %f\r\n",
   	 sceneBSphereCenter.x, sceneBSphereCenter.y, sceneBSphereCenter.z,
   	 sceneBSphereRadius);
   printf("Scene distance: %f\r\n", sceneDistance);
-  printf("FOV = %f\r\n", gk::Degrees(atan(sceneBSphereRadius / sceneDistance) * 2));
+  printf("FOV = %f\r\n", fovDegrees);
 
   printf("zNear = %f, zFar = %f\r\n",
 	 -sceneBSphereCenterLightSpace.z - sceneBSphereRadius,
 	 -sceneBSphereCenterLightSpace.z + sceneBSphereRadius);
 
-  perspective = gk::Perspective(gk::Degrees(atan(sceneBSphereRadius / sceneDistance) * 2), 1,
+  perspective = gk::Perspective(fovDegrees,
+				1,
 				-sceneBSphereCenterLightSpace.z - sceneBSphereRadius,
 				-sceneBSphereCenterLightSpace.z + sceneBSphereRadius);
 }

@@ -50,7 +50,7 @@ public:
 
   TP()
     :gk::App(),
-     _lightAnimationEnabled(false)
+     _lightAnimationEnabled(true)
   {
     gk::AppSettings settings;
     settings.setGLVersion(3, 3);
@@ -175,7 +175,7 @@ public:
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    _lights.push_back(MyPointLight(gk::Point(0, 175, 175),
+    _lights.push_back(MyPointLight(gk::Point(0, 75, 175),
 				   gk::Vec3(1, 1, 1),
 				   0.6f, 0, 0.000025f,
 				   100,
@@ -408,6 +408,7 @@ public:
     vp = p * v;
 
     glUseProgram(m_renderingProgram->name);
+
     glViewport(0, 0, windowWidth(), windowHeight());
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -515,7 +516,10 @@ public:
     }
 
     if (key(' '))
+    {
+      key(' ') = 0;
       _lightAnimationEnabled = !_lightAnimationEnabled;
+    }
 
     if (key(SDLK_KP_8))
       _lights[0].position.z = _lights[0].position.z - 1;
