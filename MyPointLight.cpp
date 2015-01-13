@@ -60,17 +60,17 @@ void MyPointLight::getSceneViewProjectionTransforms(const std::vector<MyModel*> 
 
   fovDegrees = gk::Degrees(asin(sceneBSphereRadius / sceneDistance)) * 2;
 
-  printf("Light position: "); lightPosition.print();
-  printf("Scene bounding box: "); sceneBBox.print();
-  printf("Scene bounding sphere: center = <%f,%f,%f>, radius = %f\r\n",
-  	 sceneBSphereCenter.x, sceneBSphereCenter.y, sceneBSphereCenter.z,
-  	 sceneBSphereRadius);
-  printf("Scene distance: %f\r\n", sceneDistance);
-  printf("FOV = %f\r\n", fovDegrees);
+  // printf("Light position: "); lightPosition.print();
+  // printf("Scene bounding box: "); sceneBBox.print();
+  // printf("Scene bounding sphere: center = <%f,%f,%f>, radius = %f\r\n",
+  // 	 sceneBSphereCenter.x, sceneBSphereCenter.y, sceneBSphereCenter.z,
+  // 	 sceneBSphereRadius);
+  // printf("Scene distance: %f\r\n", sceneDistance);
+  // printf("FOV = %f\r\n", fovDegrees);
 
-  printf("zNear = %f, zFar = %f\r\n",
-	 -sceneBSphereCenterLightSpace.z - sceneBSphereRadius,
-	 -sceneBSphereCenterLightSpace.z + sceneBSphereRadius);
+  // printf("zNear = %f, zFar = %f\r\n",
+  // 	 -sceneBSphereCenterLightSpace.z - sceneBSphereRadius,
+  // 	 -sceneBSphereCenterLightSpace.z + sceneBSphereRadius);
 
   perspective = gk::Perspective(fovDegrees,
 				1,

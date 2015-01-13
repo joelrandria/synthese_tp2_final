@@ -50,7 +50,7 @@ public:
 
   TP()
     :gk::App(),
-     _lightAnimationEnabled(true)
+     _lightAnimationEnabled(false)
   {
     gk::AppSettings settings;
     settings.setGLVersion(3, 3);
@@ -413,7 +413,22 @@ public:
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     m_renderingProgram->uniform("v_matrix") = v.matrix();
+
     m_renderingProgram->uniform("light_count") = (int)_lights.size();
+
+    //////////////////////////////////////////////////////////////
+
+    gk::Transform lv;
+    gk::Transform lp;
+    gk::Transform li;
+
+    _lights[0].getSceneViewProjectionTransforms(models, lv, lp);
+
+    li = gk::Viewport(1, 1);
+
+    m_renderingProgram->uniform("light_depthmap_matrix") = (li * lp * lv).matrix();
+
+    //////////////////////////////////////////////////////////////
 
     for (i = 0; i < models.size(); ++i)
     {
@@ -427,6 +442,7 @@ public:
       mv = v * m;
       mvp = vp * m;
 
+      m_renderingProgram->uniform("m_matrix") = m.matrix();
       m_renderingProgram->uniform("mv_matrix") = mv.matrix();
       m_renderingProgram->uniform("mv_normalmatrix") = mv.normalMatrix();
       m_renderingProgram->uniform("mvp_matrix") = mvp.matrix();
