@@ -181,6 +181,7 @@ public:
 				   100,
 				   lightFramebuffer));
 
+    updateLightsAnimation();
     commitLights();
   }
   void removeLight()
@@ -199,6 +200,7 @@ public:
       p = gk::RotateY(1)(gk::Point(_lights[i].position.x, _lights[i].position.y, _lights[i].position.z));
 
       _lights[i].position = gk::glsl::vec4(p.x, p.y, p.z, 1);
+      _lights[i].updateShadowMapMatrices(_models);
     }
 
     commitLights();
@@ -291,14 +293,14 @@ public:
     getUserVisibleModels(_models, visibleModels);
 
     // -- Passe #1: Cartes de profondeurs des sources de lumières
-    lightRenderingPass(_lights[0], visibleModels);
+    lightRenderingPass(_lights[0], _models);
 
     // -- Passe #2: Vue utilisateur
     cameraRenderingPass(_userCamera, visibleModels);
 
     // -- Composition finale
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, _lights[0].framebuffer);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, _lights[0].shadow_framebuffer);
 
     glBlitFramebuffer(0, 0, POINT_LIGHT_FB_TEXTURE_WIDTH, POINT_LIGHT_FB_TEXTURE_HEIGHT,
     		      0, 0, 256, 256,
@@ -353,18 +355,12 @@ public:
     MyModel* model;
     MyMeshInfo meshInfo;
 
-    gk::Transform v;
-    gk::Transform p;
-    gk::Transform vp;
-
+    gk::Transform vp(light.shadowmap_vp_matrix);
     gk::Transform mvp;
-
-    light.getSceneViewProjectionTransforms(models, v, p);
-    vp = p * v;
 
     glUseProgram(m_basicProgram->name);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, light.framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, light.shadow_framebuffer);
     glViewport(0, 0, POINT_LIGHT_FB_TEXTURE_WIDTH, POINT_LIGHT_FB_TEXTURE_HEIGHT);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -413,22 +409,7 @@ public:
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     m_renderingProgram->uniform("v_matrix") = v.matrix();
-
     m_renderingProgram->uniform("light_count") = (int)_lights.size();
-
-    //////////////////////////////////////////////////////////////
-
-    gk::Transform lv;
-    gk::Transform lp;
-    gk::Transform li;
-
-    _lights[0].getSceneViewProjectionTransforms(models, lv, lp);
-
-    li = gk::Viewport(1, 1);
-
-    m_renderingProgram->uniform("light_depthmap_matrix") = (li * lp * lv).matrix();
-
-    //////////////////////////////////////////////////////////////
 
     for (i = 0; i < models.size(); ++i)
     {
@@ -505,6 +486,7 @@ public:
       gk::writeFramebuffer("screenshot.png");
     }
 
+    // Contrôles clavier caméra
     if (key(SDLK_UP) || key(SDLK_z))
       _userCamera.localTranslate(gk::Vector(0, 0, -1));
     if (key(SDLK_DOWN) || key(SDLK_s))
@@ -518,8 +500,7 @@ public:
     if (key(SDLK_PAGEDOWN))
       _userCamera.localTranslate(gk::Vector(0, -1, 0));
 
-    // ------------------- Tests lumières -------------------
-
+    // Contrôles clavier lumières
     if (key(SDLK_KP_PLUS))
     {
       key(SDLK_KP_PLUS) = 0;
@@ -566,23 +547,6 @@ public:
       _lights[0].quadratic_attenuation -= 0.01f;
 
     commitLights();
-
-    // if (key('g'))
-    // {
-    //   for (uint i = 0; i < _models.size(); ++i)
-    // 	_models[i]->materialSpecularityBlending() += 0.01f;
-
-    //   printf("Bigguy's specularity blending = %f\r\n", _models[0]->materialSpecularityBlending());
-    // }
-    // if (key('b'))
-    // {
-    //   for (uint i = 0; i < _models.size(); ++i)
-    // 	_models[i]->materialSpecularityBlending() -= 0.01f;
-
-    //   printf("Bigguy's specularity blending = %f\r\n", _models[0]->materialSpecularityBlending());
-    // }
-
-    // ---------------------------------------------------
   }
 
   void processWindowResize(SDL_WindowEvent& event)

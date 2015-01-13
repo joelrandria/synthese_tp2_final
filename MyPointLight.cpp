@@ -10,14 +10,14 @@ MyPointLight::MyPointLight(const gk::Point& position,
 			   float linear_attenuation,
 			   float quadratic_attenuation,
 			   float specularity,
-			   GLuint framebuffer)
+			   GLuint shadow_framebuffer)
   :position(position.x, position.y, position.z, 1),
    color(color.x, color.y, color.z, 1),
    constant_attenuation(constant_attenuation),
    linear_attenuation(linear_attenuation),
    quadratic_attenuation(quadratic_attenuation),
    specularity(specularity),
-   framebuffer(framebuffer)
+   shadow_framebuffer(shadow_framebuffer)
 {
 }
 
@@ -29,9 +29,7 @@ void MyPointLight::print() const
 	 (float)constant_attenuation, (float)linear_attenuation, (float)quadratic_attenuation);
 }
 
-void MyPointLight::getSceneViewProjectionTransforms(const std::vector<MyModel*> models,
-						    gk::Transform& view,
-						    gk::Transform& perspective) const
+void MyPointLight::updateShadowMapMatrices(const std::vector<MyModel*> models)
 {
   uint i;
 
@@ -45,6 +43,9 @@ void MyPointLight::getSceneViewProjectionTransforms(const std::vector<MyModel*> 
   float sceneDistance;
 
   float fovDegrees;
+
+  gk::Transform view;
+  gk::Transform perspective;
 
   lightPosition = gk::Point(position.x, position.y, position.z);
 
@@ -76,4 +77,7 @@ void MyPointLight::getSceneViewProjectionTransforms(const std::vector<MyModel*> 
 				1,
 				-sceneBSphereCenterLightSpace.z - sceneBSphereRadius,
 				-sceneBSphereCenterLightSpace.z + sceneBSphereRadius);
+
+  shadowmap_vp_matrix = (perspective * view).matrix();
+  shadowmap_vpi_matrix = (gk::Viewport(1, 1) * perspective * view).matrix();
 }

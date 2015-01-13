@@ -23,7 +23,11 @@ class MyPointLight
   float quadratic_attenuation;
   float specularity;
 
-  GLuint framebuffer;
+  gk::Matrix4x4 shadowmap_vp_matrix;
+  gk::Matrix4x4 shadowmap_vpi_matrix;
+
+  GLuint shadow_framebuffer;
+  GLuint shadow_depth_texture;
 
   MyPointLight(const gk::Point& position,
 	       const gk::Vec3& color,
@@ -31,13 +35,11 @@ class MyPointLight
 	       float linear_attenuation,
 	       float quadratic_attenuation,
 	       float specularity,
-	       GLuint framebuffer = 0);
+	       GLuint shadow_framebuffer = 0);
 
   void print() const;
 
-  void getSceneViewProjectionTransforms(const std::vector<MyModel*> models,
-					gk::Transform& view,
-					gk::Transform& perspective) const;
+  void updateShadowMapMatrices(const std::vector<MyModel*> models);
 };
 
 #endif
