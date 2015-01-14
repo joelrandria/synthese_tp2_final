@@ -87,7 +87,7 @@ public:
 
   int loadPrograms()
   {
-    gk::programPath("shaders");
+    //gk::programPath("shaders");
 
     m_basicProgram = gk::createProgram("my_basic_program.glsl");
     if (m_basicProgram == gk::GLProgram::null())
@@ -109,7 +109,7 @@ public:
     char filename[255];
 
     MyModel* model;
-    const int modelSpacing = 50;
+    const int modelSpacing = 30;
 
     // Les bigguys
     i = 0;
