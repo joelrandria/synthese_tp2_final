@@ -81,5 +81,5 @@ void MyPointLight::updateShadowMapMatrices(const std::vector<MyModel*> models)
 				-sceneBSphereCenterLightSpace.z + sceneBSphereRadius);
 
   shadowmap_vp_matrix = (perspective * view).matrix();
-  shadowmap_vpi_matrix = (gk::Viewport(1, 1) * perspective * view).matrix();
+  shadowmap_vpi_rmatrix = (gk::Viewport(1, 1) * perspective * view).transposeMatrix(); // conversion "row-major"
 }

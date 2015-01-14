@@ -48,7 +48,7 @@ struct point_light
   float specularity;
 
   mat4 shadowmap_vp_matrix;
-  mat4 shadowmap_vpi_matrix;
+  mat4 shadowmap_vpi_rmatrix;
 
   // Champs inutilisés
   uint shadow_framebuffer;
@@ -89,7 +89,7 @@ bool isVisible(int light)
 {
   float map_depth;
 
-  mat4 light_vpi_mat = transpose(lights[light].shadowmap_vpi_matrix); // conversion "row-major"
+  mat4 light_vpi_mat = lights[light].shadowmap_vpi_rmatrix;
 
   vec4 ph = light_vpi_mat * vec4(fragment_world_position, 1);
   vec2 uv = (ph / ph.w).xy;

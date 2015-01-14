@@ -24,7 +24,7 @@ class MyPointLight
   float specularity;
 
   gk::Matrix4x4 shadowmap_vp_matrix;
-  gk::Matrix4x4 shadowmap_vpi_matrix;
+  gk::Matrix4x4 shadowmap_vpi_rmatrix;
 
   GLuint shadow_framebuffer;
   GLuint shadow_depth_texture;

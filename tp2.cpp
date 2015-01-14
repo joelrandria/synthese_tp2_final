@@ -87,8 +87,6 @@ public:
 
   int loadPrograms()
   {
-    //gk::programPath("shaders");
-
     m_basicProgram = gk::createProgram("my_basic_program.glsl");
     if (m_basicProgram == gk::GLProgram::null())
       return -1;
