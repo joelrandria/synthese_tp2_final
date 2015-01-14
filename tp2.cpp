@@ -19,7 +19,7 @@
 #include <iostream>
 #include <sstream>
 
-#define POINT_LIGHTS_MAX_COUNT		20
+#define POINT_LIGHTS_MAX_COUNT		5
 #define POINT_LIGHT_FB_TEXTURE_WIDTH	4096
 #define POINT_LIGHT_FB_TEXTURE_HEIGHT	4096
 

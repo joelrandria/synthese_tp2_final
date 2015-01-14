@@ -9,8 +9,8 @@ layout (location = 2) in vec3 texcoords;
 uniform mat4 m_matrix;
 uniform mat4 m_normalmatrix;
 uniform mat4 mv_matrix;
-uniform mat4 mvp_matrix;
 uniform mat4 mv_normalmatrix;
+uniform mat4 mvp_matrix;
 
 out vec3 fragment_world_position;
 out vec3 fragment_view_position;
@@ -33,7 +33,7 @@ void main()
 
 #ifdef FRAGMENT_SHADER
 
-#define POINT_LIGHTS_MAX_COUNT	20
+#define POINT_LIGHTS_MAX_COUNT	5
 
 #define PI 3.141592653589793238462643383279
 
@@ -47,12 +47,11 @@ struct point_light
   float quadratic_attenuation;
   float specularity;
 
-  mat4 shadowmap_vp_matrix;
+  mat4 shadowmap_vp_matrix;	// champ inutilisé dans le shader
   mat4 shadowmap_vpi_rmatrix;
 
-  // Champs inutilisés
-  uint shadow_framebuffer;
-  uint shadow_depth_texture;
+  uint shadow_framebuffer;	// champ inutilisé dans le shader
+  uint shadow_depth_texture;	// champ inutilisé dans le shader
 };
 
 in vec3 fragment_world_position;
@@ -68,6 +67,8 @@ uniform point_light_buffer
 {
   point_light lights[POINT_LIGHTS_MAX_COUNT];
 };
+
+// Compatibilité GLSL <= 400
 uniform sampler2D light_shadow_depth_texture0;
 uniform sampler2D light_shadow_depth_texture1;
 uniform sampler2D light_shadow_depth_texture2;
