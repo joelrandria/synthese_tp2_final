@@ -495,7 +495,8 @@ public:
     if (key(SDLK_KP_PLUS))
     {
       key(SDLK_KP_PLUS) = 0;
-      addLight();
+      if (_lights.size() < POINT_LIGHTS_MAX_COUNT)
+	addLight();
     }
     if (key(SDLK_KP_MINUS))
     {
