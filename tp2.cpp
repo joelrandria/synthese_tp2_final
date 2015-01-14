@@ -35,7 +35,6 @@ class TP : public gk::App
   gk::GLProgram* m_renderingProgram;
 
   // Caméras
-  MyFpsCamera _topCamera;
   MyFpsCamera _userCamera;
 
   // Modèles
@@ -169,6 +168,7 @@ public:
     glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, lightFramebufferTextures[1], 0);
     glReadBuffer(GL_COLOR_ATTACHMENT0);
     glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
     checkFramebufferStatus(lightName, GL_FRAMEBUFFER);
 
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -216,36 +216,9 @@ public:
 
   void initializeCameras()
   {
-    GLuint topCameraFramebufferTextures[2];
-
     _userCamera = MyFpsCamera(gk::Point(0, 25, 140), gk::Vector(0, 1, 0), gk::Vector(0, 0, -1));
+
     updateUserCameraProjection();
-
-    _topCamera = MyFpsCamera(gk::Point(0, 50, 0),
-			     gk::Vector(0, 0, -1),
-			     gk::Vector(0, -1, 0),
-			     gk::Orthographic(-100, 100, -100, 100, 0.01f, 1000));
-    _topCamera.renderingWidth() = 256;
-    _topCamera.renderingHeight() = 256;
-
-    glGenTextures(2, topCameraFramebufferTextures);
-
-    glBindTexture(GL_TEXTURE_2D, topCameraFramebufferTextures[0]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, _topCamera.renderingWidth(), _topCamera.renderingHeight(), 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    glBindTexture(GL_TEXTURE_2D, topCameraFramebufferTextures[1]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, _topCamera.renderingWidth(), _topCamera.renderingHeight(), 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    glGenFramebuffers(1, &_topCamera.framebuffer());
-    glBindFramebuffer(GL_FRAMEBUFFER, _topCamera.framebuffer());
-    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, topCameraFramebufferTextures[0], 0);
-    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, topCameraFramebufferTextures[1], 0);
-    glReadBuffer(GL_COLOR_ATTACHMENT0);
-    glDrawBuffer(GL_COLOR_ATTACHMENT0);
-    checkFramebufferStatus("Top camera", GL_DRAW_FRAMEBUFFER);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
   }
   void updateUserCameraProjection()
   {
@@ -295,37 +268,13 @@ public:
     getUserVisibleModels(_models, visibleModels);
 
     // -- Passe #1: Cartes de profondeurs des sources de lumières
-    lightRenderingPass(_lights[0], _models);
+    shadowMapRenderingPass(_models);
 
     // -- Passe #2: Vue utilisateur
     cameraRenderingPass(_userCamera, visibleModels);
 
-    // -- Composition finale
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, _lights[0].shadow_framebuffer);
-
-    glBlitFramebuffer(0, 0, POINT_LIGHT_FB_TEXTURE_WIDTH, POINT_LIGHT_FB_TEXTURE_HEIGHT,
-    		      0, 0, 256, 256,
-    		      GL_COLOR_BUFFER_BIT,
-    		      GL_LINEAR);
-
-    // -- Vue stationnaire de dessus orthographique
-    // glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _topCamera.framebuffer());
-    // glViewport(0, 0, _topCamera.renderingWidth(), _topCamera.renderingHeight());
-
-    // cameraRenderingPass(_topCamera, visibleModels);
-
-    // glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-
-    // // -- Composition de l'image finale
-    // glBindFramebuffer(GL_READ_FRAMEBUFFER, _topCamera.framebuffer());
-
-    // glBlitFramebuffer(0, 0, _topCamera.renderingWidth(), _topCamera.renderingHeight(),
-    // 		      0, 0, _topCamera.renderingWidth(), _topCamera.renderingHeight(),
-    // 		      GL_COLOR_BUFFER_BIT,
-    // 		      GL_LINEAR);
-
-    // glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    // -- Viewport depth buffers
+    depthBuffersRenderingPass();
 
     // -- Nettoyage des états OpenGL
     glBindVertexArray(0);
@@ -350,37 +299,43 @@ public:
 	visible.push_back(models[i]);
   }
 
-  void lightRenderingPass(const MyPointLight& light, const std::vector<MyModel*>& models)
+  void shadowMapRenderingPass(const std::vector<MyModel*>& models)
   {
     uint i;
+    uint j;
 
     MyModel* model;
     MyMeshInfo meshInfo;
 
-    gk::Transform vp(light.shadowmap_vp_matrix);
+    gk::Transform vp;
     gk::Transform mvp;
 
     glUseProgram(m_basicProgram->name);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, light.shadow_framebuffer);
-    glViewport(0, 0, POINT_LIGHT_FB_TEXTURE_WIDTH, POINT_LIGHT_FB_TEXTURE_HEIGHT);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    for (i = 0; i < models.size(); ++i)
+    for (i = 0; i < _lights.size(); ++i)
     {
-      model = models[i];
+      vp = gk::Transform(_lights[i].shadowmap_vp_matrix);
 
-      meshInfo = model->meshInfo();
+      glBindFramebuffer(GL_FRAMEBUFFER, _lights[i].shadow_framebuffer);
+      glViewport(0, 0, POINT_LIGHT_FB_TEXTURE_WIDTH, POINT_LIGHT_FB_TEXTURE_HEIGHT);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-      mvp = vp * model->modelToWorldTransform();
+      for (j = 0; j < models.size(); ++j)
+      {
+	model = models[j];
 
-      m_basicProgram->uniform("mvp_matrix") = mvp.matrix();
+	meshInfo = model->meshInfo();
 
-      glDrawElementsBaseVertex(GL_TRIANGLES,
-			       meshInfo.gpuIndexCount,
-			       GL_UNSIGNED_INT,
-			       (GLvoid*)(sizeof(GLuint) * meshInfo.gpuIndexOffset),
-			       meshInfo.gpuVertexOffset);
+	mvp = vp * model->modelToWorldTransform();
+
+	m_basicProgram->uniform("mvp_matrix") = mvp.matrix();
+
+	glDrawElementsBaseVertex(GL_TRIANGLES,
+				 meshInfo.gpuIndexCount,
+				 GL_UNSIGNED_INT,
+				 (GLvoid*)(sizeof(GLuint) * meshInfo.gpuIndexOffset),
+				 meshInfo.gpuVertexOffset);
+      }
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -400,6 +355,9 @@ public:
     gk::Transform mv;
     gk::Transform mvp;
 
+    char samplerName[50];
+    static gk::GLSampler* depthSampler = gk::createLinearSampler();
+
     v = camera.viewTransform();
     p = camera.getProjectionTransform();
 
@@ -413,31 +371,20 @@ public:
     m_renderingProgram->uniform("v_matrix") = v.matrix();
     m_renderingProgram->uniform("light_count") = (int)_lights.size();
 
-    /////////////////////////////////////////////////////////////////////
+    for (i = 0; i < _lights.size(); ++i)
+    {
+      if (i >= 5)
+	break;
 
-    static gk::GLSampler* depthSampler = gk::createLinearSampler();
+      sprintf(samplerName, "light_shadow_depth_texture%d", (int)i);
 
-    // char samplerName[50];
+      glActiveTexture(GL_TEXTURE1 + i);
+      glBindTexture(GL_TEXTURE_2D, _lights[i].shadow_depth_texture);
+      glBindSampler(1 + i, depthSampler->name);
+      glGenerateMipmap(GL_TEXTURE_2D);
 
-    // for (i = 0; i < _lights.size(); ++i)
-    // {
-    //   sprintf(samplerName, "light_shadow_depth_texture[%d]", (int)i);
-
-    //   glActiveTexture(GL_TEXTURE1 + i);
-    //   glBindTexture(GL_TEXTURE_2D, _lights[i].shadow_depth_texture);
-    //   glBindSampler(1 + i, depthSampler->name);
-    //   m_renderingProgram->sampler(samplerName) = 1 + i;
-    //   glGenerateMipmap(GL_TEXTURE_2D);
-    // }
-
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, _lights[0].shadow_depth_texture);
-    glBindSampler(1, depthSampler->name);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    m_renderingProgram->sampler("light_shadow_depth_texture") = 1;
-
-    /////////////////////////////////////////////////////////////////////
+      m_renderingProgram->sampler(samplerName) = 1 + (int)i;
+    }
 
     for (i = 0; i < models.size(); ++i)
     {
@@ -482,6 +429,23 @@ public:
 			       meshInfo.gpuVertexOffset);
 
       glBindTexture(GL_TEXTURE_2D, 0);
+    }
+  }
+
+  void depthBuffersRenderingPass()
+  {
+    uint i;
+    const int viewportSize = 256;
+
+    for (i = 0; i < _lights.size(); ++i)
+    {
+      glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+      glBindFramebuffer(GL_READ_FRAMEBUFFER, _lights[i].shadow_framebuffer);
+
+      glBlitFramebuffer(0, 0, POINT_LIGHT_FB_TEXTURE_WIDTH, POINT_LIGHT_FB_TEXTURE_HEIGHT,
+			viewportSize * i, 0, viewportSize * (i + 1), 256,
+			GL_COLOR_BUFFER_BIT,
+			GL_LINEAR);
     }
   }
 
